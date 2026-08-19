@@ -1,0 +1,162 @@
+// Prisma schema for Productsinmalta.com
+// Uses SQLite for dev; swap datasource for PostgreSQL in production.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String?
+  role      String   @default("editor")
+  createdAt DateTime @default(now())
+}
+
+model Category {
+  id            String        @id @default(cuid())
+  name          String
+  slug          String        @unique
+  description   String?
+  image         String?
+  order         Int           @default(0)
+  showOnHomepage Boolean      @default(true)
+  subcategories Subcategory[]
+  products      Product[]
+  blogs         Blog[]
+  createdAt     DateTime      @default(now())
+}
+
+model Subcategory {
+  id         String    @id @default(cuid())
+  name       String
+  slug       String    @unique
+  categoryId String
+  category   Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  products   Product[]
+  createdAt  DateTime  @default(now())
+}
+
+model Product {
+  id             String              @id @default(cuid())
+  title          String
+  slug           String              @unique
+  description    String
+  shortDesc      String?
+  images         String
+  price          Float
+  originalPrice  Float?
+  currency       String              @default("EUR")
+  brand          String?
+  platform       String?
+  affiliateUrl   String
+  rating         Float               @default(0)
+  reviewCount    Int                 @default(0)
+  categoryId     String?
+  category       Category?           @relation(fields: [categoryId], references: [id])
+  subcategoryId  String?
+  subcategory    Subcategory?        @relation(fields: [subcategoryId], references: [id])
+  tags           String              @default("[]")
+  seoTitle       String?
+  seoDescription String?
+  isFeatured     Boolean             @default(false)
+  isBestSeller   Boolean             @default(false)
+  isActive       Boolean             @default(true)
+  clicks         Int                 @default(0)
+  collections    CollectionProduct[]
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  @@index([categoryId])
+  @@index([isFeatured])
+  @@index([isBestSeller])
+}
+
+model Collection {
+  id          String              @id @default(cuid())
+  name        String
+  slug        String              @unique
+  description String?
+  image       String?
+  type          String            @default("manual")
+  isActive      Boolean           @default(true)
+  showOnHomepage Boolean          @default(true)
+  order         Int               @default(0)
+  products    CollectionProduct[]
+  createdAt   DateTime            @default(now())
+}
+
+model CollectionProduct {
+  collectionId String
+  productId    String
+  order        Int        @default(0)
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  product      Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@id([collectionId, productId])
+}
+
+model Blog {
+  id             String    @id @default(cuid())
+  title          String
+  slug           String    @unique
+  excerpt        String?
+  content        String
+  coverImage     String?
+  author         String    @default("Admin")
+  tags           String    @default("[]")
+  categoryId     String?
+  category       Category? @relation(fields: [categoryId], references: [id])
+  seoTitle       String?
+  seoDescription String?
+  isPublished    Boolean   @default(true)
+  isTop          Boolean   @default(false)
+  views          Int       @default(0)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+model Banner {
+  id        String   @id @default(cuid())
+  title     String
+  subtitle  String?
+  image     String
+  link      String?
+  slot      String   @default("hero")
+  slotKey   String?
+  order     Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model Setting {
+  key   String @id
+  value String
+}
+
+model MCPToken {
+  id        String    @id @default(cuid())
+  name      String
+  token     String    @unique
+  createdBy String
+  isActive  Boolean   @default(true)
+  lastUsed  DateTime?
+  createdAt DateTime  @default(now())
+}
+
+model ClickLog {
+  id        String   @id @default(cuid())
+  productId String
+  ip        String?
+  userAgent String?
+  referer   String?
+  createdAt DateTime @default(now())
+
+  @@index([productId])
+}
