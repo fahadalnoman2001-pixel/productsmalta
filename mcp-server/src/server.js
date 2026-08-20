@@ -1,5 +1,17 @@
 // Standalone MCP server for Products in Malta admin panel.
 // Persistent HTTP+SSE endpoint at /mcp, token-authenticated, no expiry.
+//
+// Deployment note: this app can be reached two different ways depending on
+// how it's exposed on Hostinger, and this file supports BOTH without any
+// config change:
+//   1. Hostinger Node.js "Application URL" set to a subpath (e.g. /mcp) on
+//      the main domain — Passenger strips that prefix before the request
+//      reaches this process, so it arrives here as "/", "/message", etc.
+//   2. A plain reverse-proxy / rewrite rule that forwards the full path
+//      through unchanged — the request arrives here still carrying "/mcp".
+// Every route below is registered at both the bare path and the prefixed
+// path so either setup works. Set MCP_PUBLIC_PATH if the public prefix is
+// ever something other than "/mcp" (defaults to "/mcp").
 
 import express from "express";
 import { PrismaClient } from "@prisma/client";
@@ -11,10 +23,35 @@ import { tools, dispatch } from "./tools.js";
 const prisma = new PrismaClient({
   datasources: { db: { url: process.env.MCP_SHARED_DB_URL || process.env.DATABASE_URL || "file:../dev.db" } }
 });
-const PORT = parseInt(process.env.MCP_SERVER_PORT || "4000");
+
+// Passenger assigns the listen port via process.env.PORT when it manages
+// this app (subpath or subdomain setup). Fall back to MCP_SERVER_PORT for
+// running it standalone (e.g. local dev, or a manually-managed process).
+const PORT = parseInt(process.env.PORT || process.env.MCP_SERVER_PORT || "4000");
+
+// The full public path clients (Claude, etc.) actually request, e.g.
+// "https://youroffers.eu/mcp". Used only to build the message-endpoint URL
+// handed back to clients in the SSE handshake — must always be the real
+// public path regardless of how this process receives the request internally.
+const PUBLIC_BASE = (process.env.MCP_PUBLIC_PATH || "/mcp").replace(/\/+$/, "") || "/mcp";
+
+// Keep-alive heartbeat interval for the SSE stream (ms). Some reverse
+// proxies / load balancers close "idle" HTTP connections (commonly ~60s)
+// even though this app's own timeouts are disabled — a periodic comment
+// line keeps bytes flowing so nothing in front of us decides to drop it.
+const HEARTBEAT_MS = 20_000;
 
 const app = express();
 app.use(express.json({ limit: "10mb" }));
+
+// Register a handler at both the bare path and the PUBLIC_BASE-prefixed
+// path, so it works whether or not the proxy in front strips the prefix.
+function mount(method, pathSuffix, ...handlers) {
+  const bare = pathSuffix === "" ? "/" : pathSuffix;
+  app[method](bare, ...handlers);
+  const prefixed = pathSuffix === "" ? PUBLIC_BASE : `${PUBLIC_BASE}${pathSuffix}`;
+  if (prefixed !== bare) app[method](prefixed, ...handlers);
+}
 
 // --- Auth middleware ---
 async function requireToken(req, res, next) {
@@ -29,10 +66,10 @@ async function requireToken(req, res, next) {
 }
 
 // --- Health check (no auth) ---
-app.get("/health", (_req, res) => res.json({ ok: true, service: "productsinmalta-mcp", tools: tools.length }));
+mount("get", "/health", (_req, res) => res.json({ ok: true, service: "productsinmalta-mcp", tools: tools.length }));
 
 // --- Simple JSON-RPC-style tool call endpoint (optional, easier debug) ---
-app.post("/tools/:name", requireToken, async (req, res) => {
+mount("post", "/tools/:name", requireToken, async (req, res) => {
   try {
     const result = await dispatch(prisma, req.params.name, req.body || {});
     res.json({ ok: true, result });
@@ -40,12 +77,12 @@ app.post("/tools/:name", requireToken, async (req, res) => {
     res.status(400).json({ ok: false, error: e.message });
   }
 });
-app.get("/tools", requireToken, (_req, res) => res.json({ tools }));
+mount("get", "/tools", requireToken, (_req, res) => res.json({ tools }));
 
 // --- MCP SSE endpoint (persistent, no timeout) ---
 const sseTransports = new Map();
 
-app.get("/mcp", requireToken, async (req, res) => {
+mount("get", "", requireToken, async (req, res) => {
   // Persistent connection — disable timeout so it truly never expires
   req.setTimeout(0);
   res.setTimeout(0);
@@ -67,13 +104,23 @@ app.get("/mcp", requireToken, async (req, res) => {
     }
   });
 
-  const transport = new SSEServerTransport("/mcp/message", res);
+  // Message endpoint URL handed to the client MUST be the real public path.
+  const transport = new SSEServerTransport(`${PUBLIC_BASE}/message`, res);
   sseTransports.set(transport.sessionId, transport);
-  res.on("close", () => sseTransports.delete(transport.sessionId));
+
+  const heartbeat = setInterval(() => {
+    try { res.write(": keep-alive\n\n"); } catch { clearInterval(heartbeat); }
+  }, HEARTBEAT_MS);
+
+  res.on("close", () => {
+    clearInterval(heartbeat);
+    sseTransports.delete(transport.sessionId);
+  });
+
   await server.connect(transport);
 });
 
-app.post("/mcp/message", requireToken, async (req, res) => {
+mount("post", "/message", requireToken, async (req, res) => {
   const sid = req.query.sessionId;
   const transport = sseTransports.get(sid);
   if (!transport) return res.status(404).json({ error: "no such session" });
@@ -81,7 +128,7 @@ app.post("/mcp/message", requireToken, async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`[MCP] listening on http://localhost:${PORT}`);
-  console.log(`[MCP] SSE endpoint: /mcp   |   REST endpoint: /tools/:name   |   health: /health`);
-  console.log(`[MCP] ${tools.length} tools registered`);
+  console.log(`[MCP] listening on http://localhost:${PORT} (public path: ${PUBLIC_BASE})`);
+  console.log(`[MCP] SSE endpoint: ${PUBLIC_BASE}   |   REST endpoint: ${PUBLIC_BASE}/tools/:name   |   health: ${PUBLIC_BASE}/health`);
+  console.log(`[MCP] ${tools.length} tools registered, heartbeat every ${HEARTBEAT_MS / 1000}s`);
 });

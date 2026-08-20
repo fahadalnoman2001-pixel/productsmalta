@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Trash2, Copy, Terminal } from "lucide-react";
 
-export default function MCPPanel({ tokens }: { tokens: any[] }) {
+export default function MCPPanel({ tokens, mcpUrl }: { tokens: any[]; mcpUrl: string }) {
   const router = useRouter();
   const [name, setName] = useState("");
   const [newToken, setNewToken] = useState("");
@@ -35,11 +35,11 @@ export default function MCPPanel({ tokens }: { tokens: any[] }) {
       <div className="card p-6">
         <div className="font-semibold mb-3">Connection Info</div>
         <div className="text-sm space-y-1 font-mono bg-slate-50 p-3 rounded">
-          <div>URL: <span className="text-brand-700">http://your-server:4000/mcp</span></div>
+          <div className="flex items-center gap-2">URL: <span className="text-brand-700">{mcpUrl}</span> <button onClick={() => copy(mcpUrl)} className="text-slate-400 hover:text-slate-600"><Copy size={12}/></button></div>
           <div>Auth: Bearer token (Authorization header)</div>
           <div>Persistence: no expiry — connection stays alive</div>
         </div>
-        <div className="text-xs text-slate-500 mt-2">Start with: <code className="bg-slate-100 px-1 rounded">cd mcp-server &amp;&amp; npm start</code></div>
+        <div className="text-xs text-slate-500 mt-2">Runs as a separate Node process (mcp-server/) — see brain.md for how it's exposed on this domain.</div>
       </div>
 
       <div className="card p-6">

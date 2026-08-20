@@ -1,0 +1,185 @@
+diff --git a/.env.example b/.env.example
+index b7f1921..2d06fa8 100644
+--- a/.env.example
++++ b/.env.example
+@@ -10,4 +10,9 @@ SITE_NAME="Products in Malta"
+ # MCP server (separate process)
+ MCP_SERVER_PORT=4000
+ MCP_SHARED_DB_URL="mysql://username:password@localhost:3306/database_name"
++# Public path this app is reachable at from the outside (must match how it's proxied/mounted)
++MCP_PUBLIC_PATH="/mcp"
++
++# Main app: what the admin panel displays as the MCP connection URL
++NEXT_PUBLIC_MCP_SERVER_URL="https://youroffers.eu/mcp"
+ 
+diff --git a/mcp-server/src/server.js b/mcp-server/src/server.js
+index 2e6975a..816ee4e 100644
+--- a/mcp-server/src/server.js
++++ b/mcp-server/src/server.js
+@@ -1,5 +1,17 @@
+ // Standalone MCP server for Products in Malta admin panel.
+ // Persistent HTTP+SSE endpoint at /mcp, token-authenticated, no expiry.
++//
++// Deployment note: this app can be reached two different ways depending on
++// how it's exposed on Hostinger, and this file supports BOTH without any
++// config change:
++//   1. Hostinger Node.js "Application URL" set to a subpath (e.g. /mcp) on
++//      the main domain — Passenger strips that prefix before the request
++//      reaches this process, so it arrives here as "/", "/message", etc.
++//   2. A plain reverse-proxy / rewrite rule that forwards the full path
++//      through unchanged — the request arrives here still carrying "/mcp".
++// Every route below is registered at both the bare path and the prefixed
++// path so either setup works. Set MCP_PUBLIC_PATH if the public prefix is
++// ever something other than "/mcp" (defaults to "/mcp").
+ 
+ import express from "express";
+ import { PrismaClient } from "@prisma/client";
+@@ -11,11 +23,36 @@ import { tools, dispatch } from "./tools.js";
+ const prisma = new PrismaClient({
+   datasources: { db: { url: process.env.MCP_SHARED_DB_URL || process.env.DATABASE_URL || "file:../dev.db" } }
+ });
+-const PORT = parseInt(process.env.MCP_SERVER_PORT || "4000");
++
++// Passenger assigns the listen port via process.env.PORT when it manages
++// this app (subpath or subdomain setup). Fall back to MCP_SERVER_PORT for
++// running it standalone (e.g. local dev, or a manually-managed process).
++const PORT = parseInt(process.env.PORT || process.env.MCP_SERVER_PORT || "4000");
++
++// The full public path clients (Claude, etc.) actually request, e.g.
++// "https://youroffers.eu/mcp". Used only to build the message-endpoint URL
++// handed back to clients in the SSE handshake — must always be the real
++// public path regardless of how this process receives the request internally.
++const PUBLIC_BASE = (process.env.MCP_PUBLIC_PATH || "/mcp").replace(/\/+$/, "") || "/mcp";
++
++// Keep-alive heartbeat interval for the SSE stream (ms). Some reverse
++// proxies / load balancers close "idle" HTTP connections (commonly ~60s)
++// even though this app's own timeouts are disabled — a periodic comment
++// line keeps bytes flowing so nothing in front of us decides to drop it.
++const HEARTBEAT_MS = 20_000;
+ 
+ const app = express();
+ app.use(express.json({ limit: "10mb" }));
+ 
++// Register a handler at both the bare path and the PUBLIC_BASE-prefixed
++// path, so it works whether or not the proxy in front strips the prefix.
++function mount(method, pathSuffix, ...handlers) {
++  const bare = pathSuffix === "" ? "/" : pathSuffix;
++  app[method](bare, ...handlers);
++  const prefixed = pathSuffix === "" ? PUBLIC_BASE : `${PUBLIC_BASE}${pathSuffix}`;
++  if (prefixed !== bare) app[method](prefixed, ...handlers);
++}
++
+ // --- Auth middleware ---
+ async function requireToken(req, res, next) {
+   const auth = req.headers.authorization || "";
+@@ -29,10 +66,10 @@ async function requireToken(req, res, next) {
+ }
+ 
+ // --- Health check (no auth) ---
+-app.get("/health", (_req, res) => res.json({ ok: true, service: "productsinmalta-mcp", tools: tools.length }));
++mount("get", "/health", (_req, res) => res.json({ ok: true, service: "productsinmalta-mcp", tools: tools.length }));
+ 
+ // --- Simple JSON-RPC-style tool call endpoint (optional, easier debug) ---
+-app.post("/tools/:name", requireToken, async (req, res) => {
++mount("post", "/tools/:name", requireToken, async (req, res) => {
+   try {
+     const result = await dispatch(prisma, req.params.name, req.body || {});
+     res.json({ ok: true, result });
+@@ -40,12 +77,12 @@ app.post("/tools/:name", requireToken, async (req, res) => {
+     res.status(400).json({ ok: false, error: e.message });
+   }
+ });
+-app.get("/tools", requireToken, (_req, res) => res.json({ tools }));
++mount("get", "/tools", requireToken, (_req, res) => res.json({ tools }));
+ 
+ // --- MCP SSE endpoint (persistent, no timeout) ---
+ const sseTransports = new Map();
+ 
+-app.get("/mcp", requireToken, async (req, res) => {
++mount("get", "", requireToken, async (req, res) => {
+   // Persistent connection — disable timeout so it truly never expires
+   req.setTimeout(0);
+   res.setTimeout(0);
+@@ -67,13 +104,23 @@ app.get("/mcp", requireToken, async (req, res) => {
+     }
+   });
+ 
+-  const transport = new SSEServerTransport("/mcp/message", res);
++  // Message endpoint URL handed to the client MUST be the real public path.
++  const transport = new SSEServerTransport(`${PUBLIC_BASE}/message`, res);
+   sseTransports.set(transport.sessionId, transport);
+-  res.on("close", () => sseTransports.delete(transport.sessionId));
++
++  const heartbeat = setInterval(() => {
++    try { res.write(": keep-alive\n\n"); } catch { clearInterval(heartbeat); }
++  }, HEARTBEAT_MS);
++
++  res.on("close", () => {
++    clearInterval(heartbeat);
++    sseTransports.delete(transport.sessionId);
++  });
++
+   await server.connect(transport);
+ });
+ 
+-app.post("/mcp/message", requireToken, async (req, res) => {
++mount("post", "/message", requireToken, async (req, res) => {
+   const sid = req.query.sessionId;
+   const transport = sseTransports.get(sid);
+   if (!transport) return res.status(404).json({ error: "no such session" });
+@@ -81,7 +128,7 @@ app.post("/mcp/message", requireToken, async (req, res) => {
+ });
+ 
+ app.listen(PORT, () => {
+-  console.log(`[MCP] listening on http://localhost:${PORT}`);
+-  console.log(`[MCP] SSE endpoint: /mcp   |   REST endpoint: /tools/:name   |   health: /health`);
+-  console.log(`[MCP] ${tools.length} tools registered`);
++  console.log(`[MCP] listening on http://localhost:${PORT} (public path: ${PUBLIC_BASE})`);
++  console.log(`[MCP] SSE endpoint: ${PUBLIC_BASE}   |   REST endpoint: ${PUBLIC_BASE}/tools/:name   |   health: ${PUBLIC_BASE}/health`);
++  console.log(`[MCP] ${tools.length} tools registered, heartbeat every ${HEARTBEAT_MS / 1000}s`);
+ });
+diff --git a/src/app/admin/(dashboard)/mcp/page.tsx b/src/app/admin/(dashboard)/mcp/page.tsx
+index 2bff7dc..2fd4cda 100644
+--- a/src/app/admin/(dashboard)/mcp/page.tsx
++++ b/src/app/admin/(dashboard)/mcp/page.tsx
+@@ -8,11 +8,12 @@ export default async function AdminMCP() {
+   const session = await getServerSession(authOptions);
+   if ((session?.user as any)?.role !== "super_admin") redirect("/admin");
+   const tokens = await prisma.mCPToken.findMany({ orderBy: { createdAt: "desc" } });
++  const mcpUrl = process.env.NEXT_PUBLIC_MCP_SERVER_URL || `${process.env.NEXTAUTH_URL || "https://youroffers.eu"}/mcp`;
+   return (
+     <div>
+       <h1 className="text-2xl font-bold mb-2">MCP Server</h1>
+       <p className="text-slate-600 mb-6">The MCP server exposes the admin panel to Claude / other MCP clients. Tokens never expire and grant full write access — only super admins can view this page.</p>
+-      <MCPPanel tokens={tokens} />
++      <MCPPanel tokens={tokens} mcpUrl={mcpUrl} />
+     </div>
+   );
+ }
+diff --git a/src/components/admin/MCPPanel.tsx b/src/components/admin/MCPPanel.tsx
+index 25b1b56..274ff11 100644
+--- a/src/components/admin/MCPPanel.tsx
++++ b/src/components/admin/MCPPanel.tsx
+@@ -3,7 +3,7 @@ import { useState } from "react";
+ import { useRouter } from "next/navigation";
+ import { Plus, Trash2, Copy, Terminal } from "lucide-react";
+ 
+-export default function MCPPanel({ tokens }: { tokens: any[] }) {
++export default function MCPPanel({ tokens, mcpUrl }: { tokens: any[]; mcpUrl: string }) {
+   const router = useRouter();
+   const [name, setName] = useState("");
+   const [newToken, setNewToken] = useState("");
+@@ -35,11 +35,11 @@ export default function MCPPanel({ tokens }: { tokens: any[] }) {
+       <div className="card p-6">
+         <div className="font-semibold mb-3">Connection Info</div>
+         <div className="text-sm space-y-1 font-mono bg-slate-50 p-3 rounded">
+-          <div>URL: <span className="text-brand-700">http://your-server:4000/mcp</span></div>
++          <div className="flex items-center gap-2">URL: <span className="text-brand-700">{mcpUrl}</span> <button onClick={() => copy(mcpUrl)} className="text-slate-400 hover:text-slate-600"><Copy size={12}/></button></div>
+           <div>Auth: Bearer token (Authorization header)</div>
+           <div>Persistence: no expiry — connection stays alive</div>
+         </div>
+-        <div className="text-xs text-slate-500 mt-2">Start with: <code className="bg-slate-100 px-1 rounded">cd mcp-server &amp;&amp; npm start</code></div>
++        <div className="text-xs text-slate-500 mt-2">Runs as a separate Node process (mcp-server/) — see brain.md for how it's exposed on this domain.</div>
+       </div>
+ 
+       <div className="card p-6">
