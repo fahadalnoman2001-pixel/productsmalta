@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "./db";
 
 export const authOptions: NextAuthOptions = {
+  secret: process.env.NEXTAUTH_SECRET || "e4b9d0b04e6c433190b25e7eb00c8b6b",
   session: { strategy: "jwt" },
   pages: { signIn: "/admin/login" },
   providers: [
@@ -25,3 +26,4 @@ export const authOptions: NextAuthOptions = {
     async session({ session, token }) { (session.user as any).role = (token as any).role; return session; }
   }
 };
+

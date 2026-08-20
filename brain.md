@@ -20,16 +20,16 @@ This document serves as the single source of truth for the **Products in Malta**
 ## 2. Infrastructure & Credentials Summary
 
 ### Domain & Live URLs
-- **Live Website**: [https://peachpuff-chimpanzee-259560.hostingersite.com/](https://peachpuff-chimpanzee-259560.hostingersite.com/)
-- **Admin Portal**: [https://peachpuff-chimpanzee-259560.hostingersite.com/admin/login](https://peachpuff-chimpanzee-259560.hostingersite.com/admin/login)
+- **Live Website**: [https://youroffers.eu/](https://youroffers.eu/)
+- **Admin Portal**: [https://youroffers.eu/admin/login](https://youroffers.eu/admin/login)
 
 ### Hostinger SSH Access
 - **Host**: `82.198.228.66`
 - **Port**: `65002`
 - **Username**: `u783286479`
 - **Server Home Path**: `/home/u783286479`
-- **Domain Root**: `/home/u783286479/domains/peachpuff-chimpanzee-259560.hostingersite.com`
-- **Passenger App Root**: `/home/u783286479/domains/peachpuff-chimpanzee-259560.hostingersite.com/hbuilds/current/nodejs`
+- **Domain Root**: `/home/u783286479/domains/youroffers.eu`
+- **Passenger App Root**: `/home/u783286479/domains/youroffers.eu/hbuilds/current/nodejs`
 
 ### MySQL Database Access
 - **Database Name**: `u783286479_bestdeals`
@@ -95,7 +95,7 @@ datasource db {
 - This eliminates the need to run heavy `npm install` and webpack compiles inside resource-constrained shared hosting containers.
 
 ### 3. Global Environment Variable Persistence (`preload-timestamp.js`)
-- Hostinger's Passenger runtime automatically preloads `/home/u783286479/domains/peachpuff-chimpanzee-259560.hostingersite.com/hbuilds/config/preload-timestamp.js` before executing `server.js`.
+- Hostinger's Passenger runtime automatically preloads `/home/u783286479/domains/youroffers.eu/hbuilds/config/preload-timestamp.js` before executing `server.js`.
 - The environment variables (`DATABASE_URL`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, etc.) are defined in `preload-timestamp.js`, in `current/nodejs/.env`, and as safe fallbacks in [`src/lib/db.ts`](file:///h:/Aff%20Marketing/productsinmalta/productsinmalta/src/lib/db.ts) and [`src/lib/auth.ts`](file:///h:/Aff%20Marketing/productsinmalta/productsinmalta/src/lib/auth.ts).
 
 ### 4. Passenger Application Restart Mechanism
@@ -146,7 +146,7 @@ When you make changes to the code or database schema:
    ```
 
 4. **Upload & Deploy to Hostinger**:
-   Run the deployment script (or execute SFTP transfer to `/home/u783286479/domains/peachpuff-chimpanzee-259560.hostingersite.com/hbuilds/current/nodejs/` and extract `deploy.tar.gz`).
+   Run the deployment script (or execute SFTP transfer to `/home/u783286479/domains/youroffers.eu/hbuilds/current/nodejs/` and extract `deploy.tar.gz`).
    ```bash
    node scratch/upload_and_deploy2.js
    ```
@@ -166,15 +166,15 @@ ssh -p 65002 u783286479@82.198.228.66
 ### Check Logs
 ```bash
 # View live application logs:
-tail -f ~/domains/peachpuff-chimpanzee-259560.hostingersite.com/hbuilds/current/nodejs/console.log
+tail -f ~/domains/youroffers.eu/hbuilds/current/nodejs/console.log
 
 # View system error logs:
-tail -f ~/domains/peachpuff-chimpanzee-259560.hostingersite.com/hbuilds/current/nodejs/stderr.log
+tail -f ~/domains/youroffers.eu/hbuilds/current/nodejs/stderr.log
 ```
 
 ### Restart Passenger Application
 ```bash
-touch ~/domains/peachpuff-chimpanzee-259560.hostingersite.com/hbuilds/current/nodejs/tmp/restart.txt
+touch ~/domains/youroffers.eu/hbuilds/current/nodejs/tmp/restart.txt
 pkill -f "next-server" || true
 ```
 
