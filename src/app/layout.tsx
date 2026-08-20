@@ -6,6 +6,15 @@ export const metadata: Metadata = {
   title: { default: "YourOffer.eu — Curated Affiliate Deals & Buying Guides", template: "%s | YourOffer.eu" },
   description: "Discover the best curated affiliate deals, discounts, and buying guides across electronics, fashion, home, beauty and more on YourOffer.eu.",
   metadataBase: new URL(process.env.SITE_URL || "https://youroffers.eu"),
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/favicon.png", type: "image/png" },
+      { url: "/icon.png", type: "image/png" }
+    ],
+    apple: "/apple-touch-icon.png",
+    shortcut: "/favicon.ico"
+  },
   openGraph: { type: "website", siteName: "YourOffer.eu" }
 };
 
