@@ -206,3 +206,49 @@ mysql -h 127.0.0.1 -u u783286479_bestdeals -p'LHG*WyH;o0' u783286479_bestdeals -
 - **Admin Settings**: `/admin/settings`
 - **Admin MCP Tokens**: `/admin/mcp`
 - **REST APIs**: `/api/products`, `/api/categories`, `/api/banners`, `/api/blogs`, `/api/settings`
+
+---
+
+## 8. Recent Work & Action Log
+
+Below is the detailed chronological record of all diagnostics, schema migrations, bug fixes, and deployment tasks completed:
+
+### 1. Hostinger Environment Inspection & Diagnostics
+- Established SSH connection to Hostinger server (`82.198.228.66:65002`).
+- Discovered Phusion Passenger runtime setup in `hbuilds/current/nodejs/` and verified MySQL service availability.
+- Identified the initial HTTP 500 error root cause: The app was configured with SQLite (`file:./dev.db`), and the database tables did not exist on the production server.
+
+### 2. MySQL Database Migration & Schema Optimization
+- Switched Prisma ORM provider from SQLite to MySQL in [`prisma/schema.prisma`](file:///h:/Aff%20Marketing/productsinmalta/productsinmalta/prisma/schema.prisma).
+- Annotated large text fields with `@db.Text` and `@db.LongText` (e.g. product descriptions, multiple image URL arrays, affiliate tracking URLs, rich blog articles, site settings).
+- Configured `engineType = "binary"` and `binaryTargets = ["native", "rhel-openssl-3.0.x", "debian-openssl-1.1.x", "debian-openssl-3.0.x"]` to prevent Tokio timer panics (`timer has gone away`) under CloudLinux CageFS virtualization.
+- Synchronized all 11 database models to the MySQL database `u783286479_bestdeals`.
+- Populated database with complete initial seed dataset (6 categories, 5 subcategories, 12 products, 4 collections, 11 banners, 4 blog articles, 11 settings, and default super admin user).
+
+### 3. Application Codebase & NextAuth Resilience
+- Added `output: "standalone"` to [`next.config.js`](file:///h:/Aff%20Marketing/productsinmalta/productsinmalta/next.config.js) to enable self-contained Node.js builds.
+- Added default MySQL connection string fallbacks in [`src/lib/db.ts`](file:///h:/Aff%20Marketing/productsinmalta/productsinmalta/src/lib/db.ts) to eliminate broken SQLite fallback references.
+- Configured explicit `secret` fallback in [`src/lib/auth.ts`](file:///h:/Aff%20Marketing/productsinmalta/productsinmalta/src/lib/auth.ts) to guarantee consistent session signing.
+- Updated [`.env.example`](file:///h:/Aff%20Marketing/productsinmalta/productsinmalta/.env.example) and local [`.env`](file:///h:/Aff%20Marketing/productsinmalta/productsinmalta/.env) with MySQL connection URLs.
+- Updated [`.gitignore`](file:///h:/Aff%20Marketing/productsinmalta/productsinmalta/.gitignore) to exclude temporary deployment archives (`*.tar.gz`).
+
+### 4. Global Environment Variable Persistence on Hostinger
+- Configured Hostinger's preloaded script `/home/u783286479/domains/peachpuff-chimpanzee-259560.hostingersite.com/hbuilds/config/preload-timestamp.js` to automatically inject `DATABASE_URL`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, `SUPER_ADMIN_EMAIL`, etc. into `process.env`.
+- Ensured environment variables persist across automatic Git builds, version symlink switches, and Passenger worker restarts.
+
+### 5. Production Build & Deployment Pipeline
+- Generated standalone production build including client assets (`.next/static`), public directory, and Linux query engine binaries.
+- Streamed the deployment archive (`deploy.tar.gz`) via SFTP and extracted it into the live Passenger application directory.
+- Configured proper execution permissions (`chmod +x`) on Prisma query engine binaries.
+- Restarted Phusion Passenger (`tmp/restart.txt`) and cleared stale worker processes.
+
+### 6. End-to-End Testing & Verification
+- Tested all public pages (Homepage, Products, Categories, Collections, Blog, About, Contact).
+- Tested dynamic routes (`/products/[slug]`, `/blog/[slug]`).
+- Tested Admin login and authentication flows (`/admin/login`).
+- Tested REST APIs (`/api/products`, `/api/categories`, `/api/banners`, `/api/blogs`).
+- Verified zero runtime errors in `console.log` and confirmed **HTTP 200 OK** across all endpoints.
+
+### 7. Git Synchronization
+- Committed and pushed all changes, schemas, configurations, and documentation to GitHub: [github.com/fahadalnoman2001-pixel/productsmalta](https://github.com/fahadalnoman2001-pixel/productsmalta).
+
