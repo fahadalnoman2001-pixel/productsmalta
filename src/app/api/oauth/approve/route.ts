@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { resolveOrAutoRegisterClient } from "@/lib/oauthTrustedClients";
 import crypto from "crypto";
 
 // Called when a logged-in super_admin clicks "Authorize" on /oauth/authorize.
@@ -20,12 +21,8 @@ export async function POST(req: NextRequest) {
   const codeChallengeMethod = String(form.get("code_challenge_method") || "S256");
   const state = String(form.get("state") || "");
 
-  const client = await prisma.oAuthClient.findUnique({ where: { clientId } });
+  const client = await resolveOrAutoRegisterClient(clientId, redirectUri);
   if (!client) return NextResponse.json({ error: "invalid_client" }, { status: 400 });
-  const allowedRedirects: string[] = JSON.parse(client.redirectUris || "[]");
-  if (!allowedRedirects.includes(redirectUri)) {
-    return NextResponse.json({ error: "invalid_redirect_uri" }, { status: 400 });
-  }
 
   const admin = await prisma.user.findUnique({ where: { email: session!.user!.email! } });
   const code = "oac_" + crypto.randomBytes(24).toString("hex");

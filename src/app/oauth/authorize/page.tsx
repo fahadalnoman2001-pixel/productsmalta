@@ -1,6 +1,6 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/db";
+import { resolveOrAutoRegisterClient } from "@/lib/oauthTrustedClients";
 import { redirect } from "next/navigation";
 
 export default async function OAuthAuthorizePage({
@@ -23,13 +23,14 @@ export default async function OAuthAuthorizePage({
     return <ErrorPage title="Unsupported PKCE method" detail="Only S256 code_challenge_method is supported." />;
   }
 
-  const client = await prisma.oAuthClient.findUnique({ where: { clientId } });
+  const client = await resolveOrAutoRegisterClient(clientId, redirectUri);
   if (!client) {
-    return <ErrorPage title="Unknown client" detail="This client is not registered. Try reconnecting from Claude." />;
-  }
-  const allowedRedirects: string[] = JSON.parse(client.redirectUris || "[]");
-  if (!allowedRedirects.includes(redirectUri)) {
-    return <ErrorPage title="Redirect URI mismatch" detail="This redirect_uri was not registered by the client." />;
+    return (
+      <ErrorPage
+        title="Unknown client"
+        detail="This client isn't registered and its redirect_uri isn't a recognized Claude callback. Try reconnecting from Claude."
+      />
+    );
   }
 
   const session = await getServerSession(authOptions);
