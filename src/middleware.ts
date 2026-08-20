@@ -1,6 +1,7 @@
 import { withAuth } from "next-auth/middleware";
 
 export default withAuth({
+  secret: process.env.NEXTAUTH_SECRET || "e4b9d0b04e6c433190b25e7eb00c8b6b",
   pages: { signIn: "/admin/login" },
   callbacks: {
     authorized: ({ token, req }) => {
