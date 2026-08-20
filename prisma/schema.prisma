@@ -1,12 +1,12 @@
 // Prisma schema for Productsinmalta.com
-// Uses SQLite for dev; swap datasource for PostgreSQL in production.
+// Configured for MySQL production and development.
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "mysql"
   url      = env("DATABASE_URL")
 }
 
@@ -23,8 +23,8 @@ model Category {
   id            String        @id @default(cuid())
   name          String
   slug          String        @unique
-  description   String?
-  image         String?
+  description   String?       @db.Text
+  image         String?       @db.Text
   order         Int           @default(0)
   showOnHomepage Boolean      @default(true)
   subcategories Subcategory[]
@@ -41,30 +41,32 @@ model Subcategory {
   category   Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   products   Product[]
   createdAt  DateTime  @default(now())
+
+  @@index([categoryId])
 }
 
 model Product {
   id             String              @id @default(cuid())
   title          String
   slug           String              @unique
-  description    String
-  shortDesc      String?
-  images         String
+  description    String              @db.Text
+  shortDesc      String?             @db.Text
+  images         String              @db.Text
   price          Float
   originalPrice  Float?
   currency       String              @default("EUR")
   brand          String?
   platform       String?
-  affiliateUrl   String
+  affiliateUrl   String              @db.Text
   rating         Float               @default(0)
   reviewCount    Int                 @default(0)
   categoryId     String?
   category       Category?           @relation(fields: [categoryId], references: [id])
   subcategoryId  String?
   subcategory    Subcategory?        @relation(fields: [subcategoryId], references: [id])
-  tags           String              @default("[]")
+  tags           String              @default("[]") @db.Text
   seoTitle       String?
-  seoDescription String?
+  seoDescription String?             @db.Text
   isFeatured     Boolean             @default(false)
   isBestSeller   Boolean             @default(false)
   isActive       Boolean             @default(true)
@@ -74,22 +76,23 @@ model Product {
   updatedAt      DateTime            @updatedAt
 
   @@index([categoryId])
+  @@index([subcategoryId])
   @@index([isFeatured])
   @@index([isBestSeller])
 }
 
 model Collection {
-  id          String              @id @default(cuid())
-  name        String
-  slug        String              @unique
-  description String?
-  image       String?
-  type          String            @default("manual")
-  isActive      Boolean           @default(true)
-  showOnHomepage Boolean          @default(true)
-  order         Int               @default(0)
-  products    CollectionProduct[]
-  createdAt   DateTime            @default(now())
+  id             String              @id @default(cuid())
+  name           String
+  slug           String              @unique
+  description    String?             @db.Text
+  image          String?             @db.Text
+  type           String              @default("manual")
+  isActive       Boolean             @default(true)
+  showOnHomepage Boolean             @default(true)
+  order          Int                 @default(0)
+  products       CollectionProduct[]
+  createdAt      DateTime            @default(now())
 }
 
 model CollectionProduct {
@@ -100,34 +103,37 @@ model CollectionProduct {
   product      Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@id([collectionId, productId])
+  @@index([productId])
 }
 
 model Blog {
   id             String    @id @default(cuid())
   title          String
   slug           String    @unique
-  excerpt        String?
-  content        String
-  coverImage     String?
+  excerpt        String?   @db.Text
+  content        String    @db.LongText
+  coverImage     String?   @db.Text
   author         String    @default("Admin")
-  tags           String    @default("[]")
+  tags           String    @default("[]") @db.Text
   categoryId     String?
   category       Category? @relation(fields: [categoryId], references: [id])
   seoTitle       String?
-  seoDescription String?
+  seoDescription String?   @db.Text
   isPublished    Boolean   @default(true)
   isTop          Boolean   @default(false)
   views          Int       @default(0)
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
+
+  @@index([categoryId])
 }
 
 model Banner {
   id        String   @id @default(cuid())
   title     String
-  subtitle  String?
-  image     String
-  link      String?
+  subtitle  String?  @db.Text
+  image     String   @db.Text
+  link      String?  @db.Text
   slot      String   @default("hero")
   slotKey   String?
   order     Int      @default(0)
@@ -137,7 +143,7 @@ model Banner {
 
 model Setting {
   key   String @id
-  value String
+  value String @db.Text
 }
 
 model MCPToken {
@@ -154,8 +160,8 @@ model ClickLog {
   id        String   @id @default(cuid())
   productId String
   ip        String?
-  userAgent String?
-  referer   String?
+  userAgent String?  @db.Text
+  referer   String?  @db.Text
   createdAt DateTime @default(now())
 
   @@index([productId])
