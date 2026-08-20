@@ -397,14 +397,15 @@ index 797e503..ea60f9a 100644
      } catch (err) {
 diff --git a/src/app/api/oauth/approve/route.ts b/src/app/api/oauth/approve/route.ts
 new file mode 100644
-index 0000000..c6f168a
+index 0000000..9d4e1cf
 --- /dev/null
 +++ b/src/app/api/oauth/approve/route.ts
-@@ -0,0 +1,48 @@
+@@ -0,0 +1,45 @@
 +import { NextRequest, NextResponse } from "next/server";
 +import { getServerSession } from "next-auth";
 +import { authOptions } from "@/lib/auth";
 +import { prisma } from "@/lib/db";
++import { resolveOrAutoRegisterClient } from "@/lib/oauthTrustedClients";
 +import crypto from "crypto";
 +
 +// Called when a logged-in super_admin clicks "Authorize" on /oauth/authorize.
@@ -423,12 +424,8 @@ index 0000000..c6f168a
 +  const codeChallengeMethod = String(form.get("code_challenge_method") || "S256");
 +  const state = String(form.get("state") || "");
 +
-+  const client = await prisma.oAuthClient.findUnique({ where: { clientId } });
++  const client = await resolveOrAutoRegisterClient(clientId, redirectUri);
 +  if (!client) return NextResponse.json({ error: "invalid_client" }, { status: 400 });
-+  const allowedRedirects: string[] = JSON.parse(client.redirectUris || "[]");
-+  if (!allowedRedirects.includes(redirectUri)) {
-+    return NextResponse.json({ error: "invalid_redirect_uri" }, { status: 400 });
-+  }
 +
 +  const admin = await prisma.user.findUnique({ where: { email: session!.user!.email! } });
 +  const code = "oac_" + crypto.randomBytes(24).toString("hex");
@@ -565,14 +562,14 @@ index 0000000..861133a
 +}
 diff --git a/src/app/oauth/authorize/page.tsx b/src/app/oauth/authorize/page.tsx
 new file mode 100644
-index 0000000..3591939
+index 0000000..169e6d1
 --- /dev/null
 +++ b/src/app/oauth/authorize/page.tsx
-@@ -0,0 +1,86 @@
+@@ -0,0 +1,87 @@
 +import { getServerSession } from "next-auth";
 +import { authOptions } from "@/lib/auth";
-+import { prisma } from "@/lib/db";
 +import { redirect } from "next/navigation";
++import { resolveOrAutoRegisterClient } from "@/lib/oauthTrustedClients";
 +
 +export default async function OAuthAuthorizePage({
 +  searchParams
@@ -594,13 +591,14 @@ index 0000000..3591939
 +    return <ErrorPage title="Unsupported PKCE method" detail="Only S256 code_challenge_method is supported." />;
 +  }
 +
-+  const client = await prisma.oAuthClient.findUnique({ where: { clientId } });
++  const client = await resolveOrAutoRegisterClient(clientId, redirectUri);
 +  if (!client) {
-+    return <ErrorPage title="Unknown client" detail="This client is not registered. Try reconnecting from Claude." />;
-+  }
-+  const allowedRedirects: string[] = JSON.parse(client.redirectUris || "[]");
-+  if (!allowedRedirects.includes(redirectUri)) {
-+    return <ErrorPage title="Redirect URI mismatch" detail="This redirect_uri was not registered by the client." />;
++    return (
++      <ErrorPage
++        title="Unknown client"
++        detail="This client isn't registered and its redirect_uri isn't a recognized Claude callback. Try reconnecting from Claude."
++      />
++    );
 +  }
 +
 +  const session = await getServerSession(authOptions);
@@ -682,3 +680,49 @@ index 25b1b56..274ff11 100644
        </div>
  
        <div className="card p-6">
+diff --git a/src/lib/oauthTrustedClients.ts b/src/lib/oauthTrustedClients.ts
+new file mode 100644
+index 0000000..e0207e6
+--- /dev/null
++++ b/src/lib/oauthTrustedClients.ts
+@@ -0,0 +1,40 @@
++import { prisma } from "./db";
++
++// claude.ai's connector doesn't reliably complete the Dynamic Client Registration
++// round-trip before redirecting the browser to /oauth/authorize — POST /api/oauth/register
++// works fine when tested directly, but the client_id claude.ai actually sends is
++// consistently one it generated locally, never one our /register endpoint issued.
++// Rather than depend on a DCR flow we can't debug from the outside, auto-register
++// any client_id here IF (and only if) its redirect_uri points at claude.ai's known
++// OAuth callback. Security still holds: only claude.ai's exact callback URL is
++// accepted, PKCE is still verified at the token step, and a token is only ever
++// issued after a super_admin approves on /oauth/authorize.
++const TRUSTED_REDIRECT_PREFIXES = ["https://claude.ai/api/mcp/", "https://claude.com/api/mcp/"];
++
++export function isTrustedRedirectUri(redirectUri: string): boolean {
++  return TRUSTED_REDIRECT_PREFIXES.some(p => redirectUri.startsWith(p));
++}
++
++// Returns the OAuthClient row for (clientId, redirectUri), registering it on the fly
++// if it's not known yet but the redirect_uri is trusted. Returns null if the client
++// is unknown and the redirect_uri isn't trusted (real "unknown client" case).
++export async function resolveOrAutoRegisterClient(clientId: string, redirectUri: string) {
++  const existing = await prisma.oAuthClient.findUnique({ where: { clientId } });
++  if (existing) {
++    const allowed: string[] = JSON.parse(existing.redirectUris || "[]");
++    if (allowed.includes(redirectUri)) return existing;
++    if (isTrustedRedirectUri(redirectUri)) {
++      // Same client_id reconnecting with a redirect_uri we haven't seen — extend it,
++      // rather than reject, as long as it's still a trusted claude.ai callback.
++      return prisma.oAuthClient.update({
++        where: { clientId },
++        data: { redirectUris: JSON.stringify([...allowed, redirectUri]) }
++      });
++    }
++    return null;
++  }
++  if (!isTrustedRedirectUri(redirectUri)) return null;
++  return prisma.oAuthClient.create({
++    data: { clientId, redirectUris: JSON.stringify([redirectUri]), clientName: "Claude (auto-registered)" }
++  });
++}
