@@ -206,6 +206,81 @@ mysql -h 127.0.0.1 -u u783286479_bestdeals -p'LHG*WyH;o0' u783286479_bestdeals -
 - **Admin Settings**: `/admin/settings`
 - **Admin MCP Tokens**: `/admin/mcp`
 - **REST APIs**: `/api/products`, `/api/categories`, `/api/banners`, `/api/blogs`, `/api/settings`
+- **OAuth authorize (for claude.ai connector)**: `/oauth/authorize`
+- **OAuth token/register (API)**: `/api/oauth/token`, `/api/oauth/register`
+- **OAuth discovery**: `/.well-known/oauth-authorization-server`, `/.well-known/oauth-protected-resource`
+
+---
+
+## 8a. MCP Server & OAuth (Claude / AI Agent Access)
+
+### Why OAuth exists here
+`mcp-server/` is a standalone Express process (not part of the Next.js app) that speaks
+the MCP protocol over SSE at `/mcp`. It was originally token-only: generate a Bearer
+token in `/admin/mcp`, paste it into an MCP client. That works for Claude Desktop's
+local config (custom headers), but **claude.ai's web/mobile custom-connector UI only
+supports OAuth 2.1 with Dynamic Client Registration — it has no field for a static
+Bearer token.** Without OAuth, adding `https://youroffers.eu/mcp` as a connector fails
+with a 404 on a guessed `/authorize` URL.
+
+The fix is a minimal OAuth 2.1 authorization-server shim living in the main Next.js
+app (not the mcp-server process), which wraps the existing token system rather than
+replacing it:
+
+- `/.well-known/oauth-authorization-server` and `/.well-known/oauth-protected-resource`
+  — RFC 8414 / RFC 9728 discovery documents claude.ai fetches automatically.
+- `POST /api/oauth/register` — RFC 7591 Dynamic Client Registration. Open endpoint;
+  registering a client grants no access by itself.
+- `GET /oauth/authorize` — requires an active `super_admin` NextAuth session (redirects
+  to `/admin/login?callbackUrl=...` if not logged in), then shows a one-click consent
+  page.
+- `POST /api/oauth/approve` — issues a short-lived (5 min), single-use authorization
+  code after the admin clicks Authorize.
+- `POST /api/oauth/token` — PKCE (S256) verification, then mints a normal `MCPToken`
+  row (same table/format as manually-generated tokens — shows up in `/admin/mcp`
+  "Active Tokens" like any other) and returns it as `access_token`. No `expires_in` is
+  returned, matching the "tokens never expire until revoked" design.
+- Two new Prisma models: `OAuthClient` (registered clients) and `OAuthCode`
+  (short-lived auth codes). Run `npx prisma migrate dev` / `db push` after pulling
+  this change, and redeploy with the updated Prisma client on Hostinger.
+
+Net effect: **access is still gated entirely by "can this person log into `/admin`"**
+— OAuth is just the transport claude.ai insists on; there's no separate consent/authz
+system to maintain.
+
+### mcp-server changes (reliability + discoverability)
+- Every route (`/mcp`, `/mcp/message`, `/health`, `/tools/:name`) is registered at both
+  the bare path and the `/mcp`-prefixed path, so it works whether the reverse proxy in
+  front strips the `/mcp` prefix or passes it through unchanged.
+- Listens on `process.env.PORT` first (what Passenger assigns when it manages the
+  process), falling back to `MCP_SERVER_PORT`.
+- Sends an SSE keep-alive comment every 20s so a reverse proxy's idle-connection
+  timeout doesn't drop long-lived MCP sessions (token/app-level expiry was already
+  disabled — this closes the proxy-layer gap).
+- On a 401 (missing bearer token), responds with
+  `WWW-Authenticate: Bearer resource_metadata="<issuer>/.well-known/oauth-protected-resource"`
+  so OAuth-aware clients discover the real authorize/token endpoints instead of
+  guessing `/authorize` at the domain root.
+- New env vars: `MCP_PUBLIC_PATH` (default `/mcp`), `MCP_ISSUER_URL` (default
+  `https://youroffers.eu` — the main app's origin, which hosts the OAuth endpoints).
+
+### Deployment status (as of 2026-08-20)
+`mcp-server/` has **not yet been deployed** to Hostinger as its own always-running
+process — nothing in this file or on the server currently exposes port 4000 publicly.
+To finish this:
+1. In Hostinger hPanel → Websites → youroffers.eu → Advanced → Node.js, create a
+   **second** Node.js application: Domain `youroffers.eu`, Application URL `/mcp`,
+   Application root pointing at the deployed `mcp-server/` folder, startup file
+   `src/server.js`.
+2. Set its env vars: `MCP_SHARED_DB_URL` (same MySQL URL as the main app). Leave
+   `PORT`/`MCP_SERVER_PORT` unset — Passenger assigns the port.
+3. `npm install` inside that app root (hPanel does this automatically on create/restart
+   for Node apps it manages), then start it.
+4. Redeploy the main Next.js app with the OAuth routes above and the new Prisma
+   migration applied, so `/oauth/authorize` and `/.well-known/*` are live.
+5. Test end-to-end: add `https://youroffers.eu/mcp` as a custom connector on claude.ai
+   → should redirect to `/admin/login` (if not already signed in) → consent page →
+   redirect back to claude.ai with a working token.
 
 ---
 

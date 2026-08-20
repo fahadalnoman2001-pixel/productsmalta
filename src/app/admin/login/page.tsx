@@ -1,17 +1,31 @@
 "use client";
 
 import { signIn } from "next-auth/react";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Lock, Mail, ArrowLeft, ShieldCheck, Loader2 } from "lucide-react";
 
 export default function AdminLoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <AdminLoginForm />
+    </Suspense>
+  );
+}
+
+function AdminLoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Only ever redirect to a same-site path (e.g. back to /oauth/authorize?...) — never
+  // follow an absolute/external URL here, to avoid turning this into an open redirect.
+  const rawCallback = searchParams.get("callbackUrl");
+  const callbackUrl = rawCallback && rawCallback.startsWith("/") ? rawCallback : "/admin";
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -29,7 +43,7 @@ export default function AdminLoginPage() {
         setError("Invalid email or password. Please try again.");
         setLoading(false);
       } else {
-        router.push("/admin");
+        router.push(callbackUrl);
         router.refresh();
       }
     } catch (err) {

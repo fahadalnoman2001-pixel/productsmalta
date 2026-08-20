@@ -35,6 +35,12 @@ const PORT = parseInt(process.env.PORT || process.env.MCP_SERVER_PORT || "4000")
 // public path regardless of how this process receives the request internally.
 const PUBLIC_BASE = (process.env.MCP_PUBLIC_PATH || "/mcp").replace(/\/+$/, "") || "/mcp";
 
+// Origin of the main app, which hosts the OAuth authorization server (see
+// src/app/oauth/authorize, src/app/api/oauth/*, and src/app/.well-known/*
+// in the Next.js app). Used only to point unauthenticated clients at the
+// protected-resource metadata document per RFC 9728.
+const ISSUER = (process.env.MCP_ISSUER_URL || "https://youroffers.eu").replace(/\/+$/, "");
+
 // Keep-alive heartbeat interval for the SSE stream (ms). Some reverse
 // proxies / load balancers close "idle" HTTP connections (commonly ~60s)
 // even though this app's own timeouts are disabled — a periodic comment
@@ -57,7 +63,16 @@ function mount(method, pathSuffix, ...handlers) {
 async function requireToken(req, res, next) {
   const auth = req.headers.authorization || "";
   const token = auth.startsWith("Bearer ") ? auth.slice(7) : null;
-  if (!token) return res.status(401).json({ error: "missing bearer token" });
+  if (!token) {
+    // Point unauthenticated clients (e.g. claude.ai's OAuth discovery) at the
+    // resource metadata document so they find the real authorize/token
+    // endpoints instead of guessing "/authorize" at the domain root.
+    res.setHeader(
+      "WWW-Authenticate",
+      `Bearer resource_metadata="${ISSUER}/.well-known/oauth-protected-resource"`
+    );
+    return res.status(401).json({ error: "missing bearer token" });
+  }
   const row = await prisma.mCPToken.findUnique({ where: { token } });
   if (!row || !row.isActive) return res.status(403).json({ error: "invalid token" });
   await prisma.mCPToken.update({ where: { id: row.id }, data: { lastUsed: new Date() } });

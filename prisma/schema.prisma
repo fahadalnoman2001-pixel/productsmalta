@@ -158,6 +158,33 @@ model MCPToken {
   createdAt DateTime  @default(now())
 }
 
+// --- Minimal OAuth 2.1 authorization server (for claude.ai web/mobile MCP connector) ---
+// claude.ai's remote-MCP connector requires OAuth with Dynamic Client Registration; it
+// cannot use a static Bearer token. These two models back a small shim: clients self
+// register (DCR), then a logged-in super_admin approves the grant at /oauth/authorize,
+// and the token handed back is just a normal MCPToken — so access is still controlled
+// entirely by "can this person log into /admin".
+model OAuthClient {
+  id           String   @id @default(cuid())
+  clientId     String   @unique
+  redirectUris String   @db.Text // JSON-encoded string[]
+  clientName   String?
+  createdAt    DateTime @default(now())
+}
+
+model OAuthCode {
+  id                  String   @id @default(cuid())
+  code                String   @unique
+  clientId            String
+  redirectUri         String   @db.Text
+  codeChallenge       String
+  codeChallengeMethod String   @default("S256")
+  adminUserId         String
+  used                Boolean  @default(false)
+  expiresAt           DateTime
+  createdAt           DateTime @default(now())
+}
+
 model ClickLog {
   id        String   @id @default(cuid())
   productId String

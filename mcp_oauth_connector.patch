@@ -1,0 +1,684 @@
+diff --git a/.env.example b/.env.example
+index b7f1921..1de55ae 100644
+--- a/.env.example
++++ b/.env.example
+@@ -10,4 +10,12 @@ SITE_NAME="Products in Malta"
+ # MCP server (separate process)
+ MCP_SERVER_PORT=4000
+ MCP_SHARED_DB_URL="mysql://username:password@localhost:3306/database_name"
++# Public path this app is reachable at from the outside (must match how it's proxied/mounted)
++MCP_PUBLIC_PATH="/mcp"
++# Origin of the main Next.js app, which hosts the OAuth authorization server this
++# process points unauthenticated clients at (see .well-known/oauth-protected-resource)
++MCP_ISSUER_URL="https://youroffers.eu"
++
++# Main app: what the admin panel displays as the MCP connection URL
++NEXT_PUBLIC_MCP_SERVER_URL="https://youroffers.eu/mcp"
+ 
+diff --git a/brain.md b/brain.md
+index 30e6c25..0a25bfc 100644
+--- a/brain.md
++++ b/brain.md
+@@ -206,6 +206,81 @@ mysql -h 127.0.0.1 -u u783286479_bestdeals -p'LHG*WyH;o0' u783286479_bestdeals -
+ - **Admin Settings**: `/admin/settings`
+ - **Admin MCP Tokens**: `/admin/mcp`
+ - **REST APIs**: `/api/products`, `/api/categories`, `/api/banners`, `/api/blogs`, `/api/settings`
++- **OAuth authorize (for claude.ai connector)**: `/oauth/authorize`
++- **OAuth token/register (API)**: `/api/oauth/token`, `/api/oauth/register`
++- **OAuth discovery**: `/.well-known/oauth-authorization-server`, `/.well-known/oauth-protected-resource`
++
++---
++
++## 8a. MCP Server & OAuth (Claude / AI Agent Access)
++
++### Why OAuth exists here
++`mcp-server/` is a standalone Express process (not part of the Next.js app) that speaks
++the MCP protocol over SSE at `/mcp`. It was originally token-only: generate a Bearer
++token in `/admin/mcp`, paste it into an MCP client. That works for Claude Desktop's
++local config (custom headers), but **claude.ai's web/mobile custom-connector UI only
++supports OAuth 2.1 with Dynamic Client Registration — it has no field for a static
++Bearer token.** Without OAuth, adding `https://youroffers.eu/mcp` as a connector fails
++with a 404 on a guessed `/authorize` URL.
++
++The fix is a minimal OAuth 2.1 authorization-server shim living in the main Next.js
++app (not the mcp-server process), which wraps the existing token system rather than
++replacing it:
++
++- `/.well-known/oauth-authorization-server` and `/.well-known/oauth-protected-resource`
++  — RFC 8414 / RFC 9728 discovery documents claude.ai fetches automatically.
++- `POST /api/oauth/register` — RFC 7591 Dynamic Client Registration. Open endpoint;
++  registering a client grants no access by itself.
++- `GET /oauth/authorize` — requires an active `super_admin` NextAuth session (redirects
++  to `/admin/login?callbackUrl=...` if not logged in), then shows a one-click consent
++  page.
++- `POST /api/oauth/approve` — issues a short-lived (5 min), single-use authorization
++  code after the admin clicks Authorize.
++- `POST /api/oauth/token` — PKCE (S256) verification, then mints a normal `MCPToken`
++  row (same table/format as manually-generated tokens — shows up in `/admin/mcp`
++  "Active Tokens" like any other) and returns it as `access_token`. No `expires_in` is
++  returned, matching the "tokens never expire until revoked" design.
++- Two new Prisma models: `OAuthClient` (registered clients) and `OAuthCode`
++  (short-lived auth codes). Run `npx prisma migrate dev` / `db push` after pulling
++  this change, and redeploy with the updated Prisma client on Hostinger.
++
++Net effect: **access is still gated entirely by "can this person log into `/admin`"**
++— OAuth is just the transport claude.ai insists on; there's no separate consent/authz
++system to maintain.
++
++### mcp-server changes (reliability + discoverability)
++- Every route (`/mcp`, `/mcp/message`, `/health`, `/tools/:name`) is registered at both
++  the bare path and the `/mcp`-prefixed path, so it works whether the reverse proxy in
++  front strips the `/mcp` prefix or passes it through unchanged.
++- Listens on `process.env.PORT` first (what Passenger assigns when it manages the
++  process), falling back to `MCP_SERVER_PORT`.
++- Sends an SSE keep-alive comment every 20s so a reverse proxy's idle-connection
++  timeout doesn't drop long-lived MCP sessions (token/app-level expiry was already
++  disabled — this closes the proxy-layer gap).
++- On a 401 (missing bearer token), responds with
++  `WWW-Authenticate: Bearer resource_metadata="<issuer>/.well-known/oauth-protected-resource"`
++  so OAuth-aware clients discover the real authorize/token endpoints instead of
++  guessing `/authorize` at the domain root.
++- New env vars: `MCP_PUBLIC_PATH` (default `/mcp`), `MCP_ISSUER_URL` (default
++  `https://youroffers.eu` — the main app's origin, which hosts the OAuth endpoints).
++
++### Deployment status (as of 2026-08-20)
++`mcp-server/` has **not yet been deployed** to Hostinger as its own always-running
++process — nothing in this file or on the server currently exposes port 4000 publicly.
++To finish this:
++1. In Hostinger hPanel → Websites → youroffers.eu → Advanced → Node.js, create a
++   **second** Node.js application: Domain `youroffers.eu`, Application URL `/mcp`,
++   Application root pointing at the deployed `mcp-server/` folder, startup file
++   `src/server.js`.
++2. Set its env vars: `MCP_SHARED_DB_URL` (same MySQL URL as the main app). Leave
++   `PORT`/`MCP_SERVER_PORT` unset — Passenger assigns the port.
++3. `npm install` inside that app root (hPanel does this automatically on create/restart
++   for Node apps it manages), then start it.
++4. Redeploy the main Next.js app with the OAuth routes above and the new Prisma
++   migration applied, so `/oauth/authorize` and `/.well-known/*` are live.
++5. Test end-to-end: add `https://youroffers.eu/mcp` as a custom connector on claude.ai
++   → should redirect to `/admin/login` (if not already signed in) → consent page →
++   redirect back to claude.ai with a working token.
+ 
+ ---
+ 
+diff --git a/mcp-server/src/server.js b/mcp-server/src/server.js
+index 2e6975a..ca2ade5 100644
+--- a/mcp-server/src/server.js
++++ b/mcp-server/src/server.js
+@@ -1,5 +1,17 @@
+ // Standalone MCP server for Products in Malta admin panel.
+ // Persistent HTTP+SSE endpoint at /mcp, token-authenticated, no expiry.
++//
++// Deployment note: this app can be reached two different ways depending on
++// how it's exposed on Hostinger, and this file supports BOTH without any
++// config change:
++//   1. Hostinger Node.js "Application URL" set to a subpath (e.g. /mcp) on
++//      the main domain — Passenger strips that prefix before the request
++//      reaches this process, so it arrives here as "/", "/message", etc.
++//   2. A plain reverse-proxy / rewrite rule that forwards the full path
++//      through unchanged — the request arrives here still carrying "/mcp".
++// Every route below is registered at both the bare path and the prefixed
++// path so either setup works. Set MCP_PUBLIC_PATH if the public prefix is
++// ever something other than "/mcp" (defaults to "/mcp").
+ 
+ import express from "express";
+ import { PrismaClient } from "@prisma/client";
+@@ -11,16 +23,56 @@ import { tools, dispatch } from "./tools.js";
+ const prisma = new PrismaClient({
+   datasources: { db: { url: process.env.MCP_SHARED_DB_URL || process.env.DATABASE_URL || "file:../dev.db" } }
+ });
+-const PORT = parseInt(process.env.MCP_SERVER_PORT || "4000");
++
++// Passenger assigns the listen port via process.env.PORT when it manages
++// this app (subpath or subdomain setup). Fall back to MCP_SERVER_PORT for
++// running it standalone (e.g. local dev, or a manually-managed process).
++const PORT = parseInt(process.env.PORT || process.env.MCP_SERVER_PORT || "4000");
++
++// The full public path clients (Claude, etc.) actually request, e.g.
++// "https://youroffers.eu/mcp". Used only to build the message-endpoint URL
++// handed back to clients in the SSE handshake — must always be the real
++// public path regardless of how this process receives the request internally.
++const PUBLIC_BASE = (process.env.MCP_PUBLIC_PATH || "/mcp").replace(/\/+$/, "") || "/mcp";
++
++// Origin of the main app, which hosts the OAuth authorization server (see
++// src/app/oauth/authorize, src/app/api/oauth/*, and src/app/.well-known/*
++// in the Next.js app). Used only to point unauthenticated clients at the
++// protected-resource metadata document per RFC 9728.
++const ISSUER = (process.env.MCP_ISSUER_URL || "https://youroffers.eu").replace(/\/+$/, "");
++
++// Keep-alive heartbeat interval for the SSE stream (ms). Some reverse
++// proxies / load balancers close "idle" HTTP connections (commonly ~60s)
++// even though this app's own timeouts are disabled — a periodic comment
++// line keeps bytes flowing so nothing in front of us decides to drop it.
++const HEARTBEAT_MS = 20_000;
+ 
+ const app = express();
+ app.use(express.json({ limit: "10mb" }));
+ 
++// Register a handler at both the bare path and the PUBLIC_BASE-prefixed
++// path, so it works whether or not the proxy in front strips the prefix.
++function mount(method, pathSuffix, ...handlers) {
++  const bare = pathSuffix === "" ? "/" : pathSuffix;
++  app[method](bare, ...handlers);
++  const prefixed = pathSuffix === "" ? PUBLIC_BASE : `${PUBLIC_BASE}${pathSuffix}`;
++  if (prefixed !== bare) app[method](prefixed, ...handlers);
++}
++
+ // --- Auth middleware ---
+ async function requireToken(req, res, next) {
+   const auth = req.headers.authorization || "";
+   const token = auth.startsWith("Bearer ") ? auth.slice(7) : null;
+-  if (!token) return res.status(401).json({ error: "missing bearer token" });
++  if (!token) {
++    // Point unauthenticated clients (e.g. claude.ai's OAuth discovery) at the
++    // resource metadata document so they find the real authorize/token
++    // endpoints instead of guessing "/authorize" at the domain root.
++    res.setHeader(
++      "WWW-Authenticate",
++      `Bearer resource_metadata="${ISSUER}/.well-known/oauth-protected-resource"`
++    );
++    return res.status(401).json({ error: "missing bearer token" });
++  }
+   const row = await prisma.mCPToken.findUnique({ where: { token } });
+   if (!row || !row.isActive) return res.status(403).json({ error: "invalid token" });
+   await prisma.mCPToken.update({ where: { id: row.id }, data: { lastUsed: new Date() } });
+@@ -29,10 +81,10 @@ async function requireToken(req, res, next) {
+ }
+ 
+ // --- Health check (no auth) ---
+-app.get("/health", (_req, res) => res.json({ ok: true, service: "productsinmalta-mcp", tools: tools.length }));
++mount("get", "/health", (_req, res) => res.json({ ok: true, service: "productsinmalta-mcp", tools: tools.length }));
+ 
+ // --- Simple JSON-RPC-style tool call endpoint (optional, easier debug) ---
+-app.post("/tools/:name", requireToken, async (req, res) => {
++mount("post", "/tools/:name", requireToken, async (req, res) => {
+   try {
+     const result = await dispatch(prisma, req.params.name, req.body || {});
+     res.json({ ok: true, result });
+@@ -40,12 +92,12 @@ app.post("/tools/:name", requireToken, async (req, res) => {
+     res.status(400).json({ ok: false, error: e.message });
+   }
+ });
+-app.get("/tools", requireToken, (_req, res) => res.json({ tools }));
++mount("get", "/tools", requireToken, (_req, res) => res.json({ tools }));
+ 
+ // --- MCP SSE endpoint (persistent, no timeout) ---
+ const sseTransports = new Map();
+ 
+-app.get("/mcp", requireToken, async (req, res) => {
++mount("get", "", requireToken, async (req, res) => {
+   // Persistent connection — disable timeout so it truly never expires
+   req.setTimeout(0);
+   res.setTimeout(0);
+@@ -67,13 +119,23 @@ app.get("/mcp", requireToken, async (req, res) => {
+     }
+   });
+ 
+-  const transport = new SSEServerTransport("/mcp/message", res);
++  // Message endpoint URL handed to the client MUST be the real public path.
++  const transport = new SSEServerTransport(`${PUBLIC_BASE}/message`, res);
+   sseTransports.set(transport.sessionId, transport);
+-  res.on("close", () => sseTransports.delete(transport.sessionId));
++
++  const heartbeat = setInterval(() => {
++    try { res.write(": keep-alive\n\n"); } catch { clearInterval(heartbeat); }
++  }, HEARTBEAT_MS);
++
++  res.on("close", () => {
++    clearInterval(heartbeat);
++    sseTransports.delete(transport.sessionId);
++  });
++
+   await server.connect(transport);
+ });
+ 
+-app.post("/mcp/message", requireToken, async (req, res) => {
++mount("post", "/message", requireToken, async (req, res) => {
+   const sid = req.query.sessionId;
+   const transport = sseTransports.get(sid);
+   if (!transport) return res.status(404).json({ error: "no such session" });
+@@ -81,7 +143,7 @@ app.post("/mcp/message", requireToken, async (req, res) => {
+ });
+ 
+ app.listen(PORT, () => {
+-  console.log(`[MCP] listening on http://localhost:${PORT}`);
+-  console.log(`[MCP] SSE endpoint: /mcp   |   REST endpoint: /tools/:name   |   health: /health`);
+-  console.log(`[MCP] ${tools.length} tools registered`);
++  console.log(`[MCP] listening on http://localhost:${PORT} (public path: ${PUBLIC_BASE})`);
++  console.log(`[MCP] SSE endpoint: ${PUBLIC_BASE}   |   REST endpoint: ${PUBLIC_BASE}/tools/:name   |   health: ${PUBLIC_BASE}/health`);
++  console.log(`[MCP] ${tools.length} tools registered, heartbeat every ${HEARTBEAT_MS / 1000}s`);
+ });
+diff --git a/prisma/schema.prisma b/prisma/schema.prisma
+index a0d88a4..b030dd7 100644
+--- a/prisma/schema.prisma
++++ b/prisma/schema.prisma
+@@ -158,6 +158,33 @@ model MCPToken {
+   createdAt DateTime  @default(now())
+ }
+ 
++// --- Minimal OAuth 2.1 authorization server (for claude.ai web/mobile MCP connector) ---
++// claude.ai's remote-MCP connector requires OAuth with Dynamic Client Registration; it
++// cannot use a static Bearer token. These two models back a small shim: clients self
++// register (DCR), then a logged-in super_admin approves the grant at /oauth/authorize,
++// and the token handed back is just a normal MCPToken — so access is still controlled
++// entirely by "can this person log into /admin".
++model OAuthClient {
++  id           String   @id @default(cuid())
++  clientId     String   @unique
++  redirectUris String   @db.Text // JSON-encoded string[]
++  clientName   String?
++  createdAt    DateTime @default(now())
++}
++
++model OAuthCode {
++  id                  String   @id @default(cuid())
++  code                String   @unique
++  clientId            String
++  redirectUri         String   @db.Text
++  codeChallenge       String
++  codeChallengeMethod String   @default("S256")
++  adminUserId         String
++  used                Boolean  @default(false)
++  expiresAt           DateTime
++  createdAt           DateTime @default(now())
++}
++
+ model ClickLog {
+   id        String   @id @default(cuid())
+   productId String
+diff --git a/src/app/.well-known/oauth-authorization-server/route.ts b/src/app/.well-known/oauth-authorization-server/route.ts
+new file mode 100644
+index 0000000..c5fcf82
+--- /dev/null
++++ b/src/app/.well-known/oauth-authorization-server/route.ts
+@@ -0,0 +1,19 @@
++import { NextResponse } from "next/server";
++
++// RFC 8414 authorization server metadata. claude.ai's remote MCP connector fetches this
++// (at the origin root, i.e. https://youroffers.eu/.well-known/oauth-authorization-server)
++// to discover where to register a client and send users to authorize.
++export async function GET() {
++  const issuer = process.env.NEXTAUTH_URL || "https://youroffers.eu";
++  return NextResponse.json({
++    issuer,
++    authorization_endpoint: `${issuer}/oauth/authorize`,
++    token_endpoint: `${issuer}/api/oauth/token`,
++    registration_endpoint: `${issuer}/api/oauth/register`,
++    response_types_supported: ["code"],
++    grant_types_supported: ["authorization_code"],
++    code_challenge_methods_supported: ["S256"],
++    token_endpoint_auth_methods_supported: ["none"],
++    scopes_supported: ["mcp"]
++  });
++}
+diff --git a/src/app/.well-known/oauth-protected-resource/route.ts b/src/app/.well-known/oauth-protected-resource/route.ts
+new file mode 100644
+index 0000000..5493396
+--- /dev/null
++++ b/src/app/.well-known/oauth-protected-resource/route.ts
+@@ -0,0 +1,13 @@
++import { NextResponse } from "next/server";
++
++// RFC 9728 protected resource metadata. The mcp-server's 401 response points here
++// (via WWW-Authenticate: Bearer resource_metadata="...") so clients know which
++// authorization server issues tokens for the /mcp resource.
++export async function GET() {
++  const issuer = process.env.NEXTAUTH_URL || "https://youroffers.eu";
++  const mcpUrl = process.env.NEXT_PUBLIC_MCP_SERVER_URL || `${issuer}/mcp`;
++  return NextResponse.json({
++    resource: mcpUrl,
++    authorization_servers: [issuer]
++  });
++}
+diff --git a/src/app/admin/(dashboard)/mcp/page.tsx b/src/app/admin/(dashboard)/mcp/page.tsx
+index 2bff7dc..2fd4cda 100644
+--- a/src/app/admin/(dashboard)/mcp/page.tsx
++++ b/src/app/admin/(dashboard)/mcp/page.tsx
+@@ -8,11 +8,12 @@ export default async function AdminMCP() {
+   const session = await getServerSession(authOptions);
+   if ((session?.user as any)?.role !== "super_admin") redirect("/admin");
+   const tokens = await prisma.mCPToken.findMany({ orderBy: { createdAt: "desc" } });
++  const mcpUrl = process.env.NEXT_PUBLIC_MCP_SERVER_URL || `${process.env.NEXTAUTH_URL || "https://youroffers.eu"}/mcp`;
+   return (
+     <div>
+       <h1 className="text-2xl font-bold mb-2">MCP Server</h1>
+       <p className="text-slate-600 mb-6">The MCP server exposes the admin panel to Claude / other MCP clients. Tokens never expire and grant full write access — only super admins can view this page.</p>
+-      <MCPPanel tokens={tokens} />
++      <MCPPanel tokens={tokens} mcpUrl={mcpUrl} />
+     </div>
+   );
+ }
+diff --git a/src/app/admin/login/page.tsx b/src/app/admin/login/page.tsx
+index 797e503..ea60f9a 100644
+--- a/src/app/admin/login/page.tsx
++++ b/src/app/admin/login/page.tsx
+@@ -1,17 +1,31 @@
+ "use client";
+ 
+ import { signIn } from "next-auth/react";
+-import { useState } from "react";
+-import { useRouter } from "next/navigation";
++import { Suspense, useState } from "react";
++import { useRouter, useSearchParams } from "next/navigation";
+ import Link from "next/link";
+ import { Lock, Mail, ArrowLeft, ShieldCheck, Loader2 } from "lucide-react";
+ 
+ export default function AdminLoginPage() {
++  return (
++    <Suspense fallback={null}>
++      <AdminLoginForm />
++    </Suspense>
++  );
++}
++
++function AdminLoginForm() {
+   const [email, setEmail] = useState("");
+   const [password, setPassword] = useState("");
+   const [error, setError] = useState("");
+   const [loading, setLoading] = useState(false);
+   const router = useRouter();
++  const searchParams = useSearchParams();
++
++  // Only ever redirect to a same-site path (e.g. back to /oauth/authorize?...) — never
++  // follow an absolute/external URL here, to avoid turning this into an open redirect.
++  const rawCallback = searchParams.get("callbackUrl");
++  const callbackUrl = rawCallback && rawCallback.startsWith("/") ? rawCallback : "/admin";
+ 
+   async function onSubmit(e: React.FormEvent) {
+     e.preventDefault();
+@@ -29,7 +43,7 @@ export default function AdminLoginPage() {
+         setError("Invalid email or password. Please try again.");
+         setLoading(false);
+       } else {
+-        router.push("/admin");
++        router.push(callbackUrl);
+         router.refresh();
+       }
+     } catch (err) {
+diff --git a/src/app/api/oauth/approve/route.ts b/src/app/api/oauth/approve/route.ts
+new file mode 100644
+index 0000000..c6f168a
+--- /dev/null
++++ b/src/app/api/oauth/approve/route.ts
+@@ -0,0 +1,48 @@
++import { NextRequest, NextResponse } from "next/server";
++import { getServerSession } from "next-auth";
++import { authOptions } from "@/lib/auth";
++import { prisma } from "@/lib/db";
++import crypto from "crypto";
++
++// Called when a logged-in super_admin clicks "Authorize" on /oauth/authorize.
++// Issues a short-lived, single-use authorization code and redirects back to the client.
++export async function POST(req: NextRequest) {
++  const session = await getServerSession(authOptions);
++  const role = (session?.user as any)?.role;
++  if (!session || role !== "super_admin") {
++    return NextResponse.json({ error: "access_denied" }, { status: 403 });
++  }
++
++  const form = await req.formData();
++  const clientId = String(form.get("client_id") || "");
++  const redirectUri = String(form.get("redirect_uri") || "");
++  const codeChallenge = String(form.get("code_challenge") || "");
++  const codeChallengeMethod = String(form.get("code_challenge_method") || "S256");
++  const state = String(form.get("state") || "");
++
++  const client = await prisma.oAuthClient.findUnique({ where: { clientId } });
++  if (!client) return NextResponse.json({ error: "invalid_client" }, { status: 400 });
++  const allowedRedirects: string[] = JSON.parse(client.redirectUris || "[]");
++  if (!allowedRedirects.includes(redirectUri)) {
++    return NextResponse.json({ error: "invalid_redirect_uri" }, { status: 400 });
++  }
++
++  const admin = await prisma.user.findUnique({ where: { email: session!.user!.email! } });
++  const code = "oac_" + crypto.randomBytes(24).toString("hex");
++  await prisma.oAuthCode.create({
++    data: {
++      code,
++      clientId,
++      redirectUri,
++      codeChallenge,
++      codeChallengeMethod,
++      adminUserId: admin!.id,
++      expiresAt: new Date(Date.now() + 5 * 60 * 1000)
++    }
++  });
++
++  const url = new URL(redirectUri);
++  url.searchParams.set("code", code);
++  if (state) url.searchParams.set("state", state);
++  return NextResponse.redirect(url.toString(), { status: 303 });
++}
+diff --git a/src/app/api/oauth/register/route.ts b/src/app/api/oauth/register/route.ts
+new file mode 100644
+index 0000000..e3931f7
+--- /dev/null
++++ b/src/app/api/oauth/register/route.ts
+@@ -0,0 +1,36 @@
++import { NextRequest, NextResponse } from "next/server";
++import { prisma } from "@/lib/db";
++import crypto from "crypto";
++
++// RFC 7591 Dynamic Client Registration. claude.ai calls this automatically the first
++// time it connects — registration itself grants no access, it just lets the caller
++// show up as a known client_id at /oauth/authorize, which still requires a super_admin
++// to be logged in and approve before any token is issued.
++export async function POST(req: NextRequest) {
++  const body = await req.json().catch(() => ({}));
++  const redirectUris: string[] = Array.isArray(body.redirect_uris) ? body.redirect_uris : [];
++  if (redirectUris.length === 0) {
++    return NextResponse.json({ error: "invalid_client_metadata", error_description: "redirect_uris is required" }, { status: 400 });
++  }
++
++  const clientId = "mcpc_" + crypto.randomBytes(16).toString("hex");
++  await prisma.oAuthClient.create({
++    data: {
++      clientId,
++      redirectUris: JSON.stringify(redirectUris),
++      clientName: typeof body.client_name === "string" ? body.client_name : "Claude"
++    }
++  });
++
++  return NextResponse.json(
++    {
++      client_id: clientId,
++      redirect_uris: redirectUris,
++      client_name: body.client_name || "Claude",
++      token_endpoint_auth_method: "none",
++      grant_types: ["authorization_code"],
++      response_types: ["code"]
++    },
++    { status: 201 }
++  );
++}
+diff --git a/src/app/api/oauth/token/route.ts b/src/app/api/oauth/token/route.ts
+new file mode 100644
+index 0000000..861133a
+--- /dev/null
++++ b/src/app/api/oauth/token/route.ts
+@@ -0,0 +1,66 @@
++import { NextRequest, NextResponse } from "next/server";
++import { prisma } from "@/lib/db";
++import crypto from "crypto";
++
++function base64url(buf: Buffer) {
++  return buf.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
++}
++
++async function readParams(req: NextRequest): Promise<Record<string, string>> {
++  const ct = req.headers.get("content-type") || "";
++  if (ct.includes("application/json")) {
++    const j = await req.json().catch(() => ({}));
++    return j as Record<string, string>;
++  }
++  const form = await req.formData();
++  const out: Record<string, string> = {};
++  form.forEach((v, k) => (out[k] = String(v)));
++  return out;
++}
++
++// RFC 6749 §4.1.3 token exchange with RFC 7636 PKCE verification.
++// Success returns a real, non-expiring MCPToken as the access_token — the same kind of
++// token the admin panel generates manually — so downstream auth (mcp-server's
++// requireToken) doesn't need to know or care that this token came via OAuth.
++export async function POST(req: NextRequest) {
++  const p = await readParams(req);
++
++  if (p.grant_type !== "authorization_code") {
++    return NextResponse.json({ error: "unsupported_grant_type" }, { status: 400 });
++  }
++  const code = p.code || "";
++  const redirectUri = p.redirect_uri || "";
++  const clientId = p.client_id || "";
++  const codeVerifier = p.code_verifier || "";
++
++  const record = await prisma.oAuthCode.findUnique({ where: { code } });
++  if (!record || record.used || record.expiresAt < new Date()) {
++    return NextResponse.json({ error: "invalid_grant" }, { status: 400 });
++  }
++  if (record.clientId !== clientId || record.redirectUri !== redirectUri) {
++    return NextResponse.json({ error: "invalid_grant" }, { status: 400 });
++  }
++  const expectedChallenge = base64url(crypto.createHash("sha256").update(codeVerifier).digest());
++  if (expectedChallenge !== record.codeChallenge) {
++    return NextResponse.json({ error: "invalid_grant", error_description: "PKCE verification failed" }, { status: 400 });
++  }
++
++  // Single-use: burn the code before issuing a token.
++  await prisma.oAuthCode.update({ where: { code }, data: { used: true } });
++
++  const client = await prisma.oAuthClient.findUnique({ where: { clientId } });
++  const token = "mcp_" + crypto.randomBytes(24).toString("hex");
++  await prisma.mCPToken.create({
++    data: {
++      name: `OAuth: ${client?.clientName || clientId} (${new Date().toISOString().slice(0, 10)})`,
++      token,
++      createdBy: record.adminUserId
++    }
++  });
++
++  return NextResponse.json({
++    access_token: token,
++    token_type: "bearer",
++    scope: "mcp"
++  });
++}
+diff --git a/src/app/oauth/authorize/page.tsx b/src/app/oauth/authorize/page.tsx
+new file mode 100644
+index 0000000..3591939
+--- /dev/null
++++ b/src/app/oauth/authorize/page.tsx
+@@ -0,0 +1,86 @@
++import { getServerSession } from "next-auth";
++import { authOptions } from "@/lib/auth";
++import { prisma } from "@/lib/db";
++import { redirect } from "next/navigation";
++
++export default async function OAuthAuthorizePage({
++  searchParams
++}: {
++  searchParams: { [key: string]: string | string[] | undefined };
++}) {
++  const responseType = String(searchParams.response_type || "");
++  const clientId = String(searchParams.client_id || "");
++  const redirectUri = String(searchParams.redirect_uri || "");
++  const codeChallenge = String(searchParams.code_challenge || "");
++  const codeChallengeMethod = String(searchParams.code_challenge_method || "S256");
++  const state = String(searchParams.state || "");
++  const scope = String(searchParams.scope || "mcp");
++
++  if (responseType !== "code" || !clientId || !redirectUri || !codeChallenge) {
++    return <ErrorPage title="Invalid request" detail="Missing or unsupported OAuth parameters." />;
++  }
++  if (codeChallengeMethod !== "S256") {
++    return <ErrorPage title="Unsupported PKCE method" detail="Only S256 code_challenge_method is supported." />;
++  }
++
++  const client = await prisma.oAuthClient.findUnique({ where: { clientId } });
++  if (!client) {
++    return <ErrorPage title="Unknown client" detail="This client is not registered. Try reconnecting from Claude." />;
++  }
++  const allowedRedirects: string[] = JSON.parse(client.redirectUris || "[]");
++  if (!allowedRedirects.includes(redirectUri)) {
++    return <ErrorPage title="Redirect URI mismatch" detail="This redirect_uri was not registered by the client." />;
++  }
++
++  const session = await getServerSession(authOptions);
++  const role = (session?.user as any)?.role;
++
++  if (!session || role !== "super_admin") {
++    const here = `/oauth/authorize?${new URLSearchParams(searchParams as Record<string, string>).toString()}`;
++    redirect(`/admin/login?callbackUrl=${encodeURIComponent(here)}`);
++  }
++
++  return (
++    <div className="min-h-screen flex items-center justify-center bg-slate-900 p-4">
++      <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-8 space-y-5">
++        <div className="text-center">
++          <img src="/logo.png" alt="YourOffer.eu" className="h-10 mx-auto mb-4" />
++          <h1 className="text-xl font-bold text-slate-900">Connect {client.clientName || "Claude"} to YourOffer.eu</h1>
++          <p className="text-sm text-slate-500 mt-2">
++            Signed in as <span className="font-medium">{session!.user!.email}</span>. This will grant full read/write
++            access to products, blogs, categories, collections, banners and settings via the MCP server. Tokens issued
++            this way never expire until revoked from <span className="font-mono text-xs">/admin/mcp</span>.
++          </p>
++        </div>
++        <form method="POST" action="/api/oauth/approve" className="space-y-3">
++          <input type="hidden" name="client_id" value={clientId} />
++          <input type="hidden" name="redirect_uri" value={redirectUri} />
++          <input type="hidden" name="code_challenge" value={codeChallenge} />
++          <input type="hidden" name="code_challenge_method" value={codeChallengeMethod} />
++          <input type="hidden" name="state" value={state} />
++          <input type="hidden" name="scope" value={scope} />
++          <button
++            type="submit"
++            className="w-full py-2.5 px-4 bg-brand-500 hover:bg-brand-600 text-white font-semibold rounded-lg text-sm transition"
++          >
++            Authorize
++          </button>
++          <a href="/admin" className="block text-center text-xs text-slate-400 hover:text-slate-600">
++            Cancel
++          </a>
++        </form>
++      </div>
++    </div>
++  );
++}
++
++function ErrorPage({ title, detail }: { title: string; detail: string }) {
++  return (
++    <div className="min-h-screen flex items-center justify-center bg-slate-900 p-4">
++      <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-8 text-center space-y-2">
++        <h1 className="text-lg font-bold text-red-600">{title}</h1>
++        <p className="text-sm text-slate-500">{detail}</p>
++      </div>
++    </div>
++  );
++}
+diff --git a/src/components/admin/MCPPanel.tsx b/src/components/admin/MCPPanel.tsx
+index 25b1b56..274ff11 100644
+--- a/src/components/admin/MCPPanel.tsx
++++ b/src/components/admin/MCPPanel.tsx
+@@ -3,7 +3,7 @@ import { useState } from "react";
+ import { useRouter } from "next/navigation";
+ import { Plus, Trash2, Copy, Terminal } from "lucide-react";
+ 
+-export default function MCPPanel({ tokens }: { tokens: any[] }) {
++export default function MCPPanel({ tokens, mcpUrl }: { tokens: any[]; mcpUrl: string }) {
+   const router = useRouter();
+   const [name, setName] = useState("");
+   const [newToken, setNewToken] = useState("");
+@@ -35,11 +35,11 @@ export default function MCPPanel({ tokens }: { tokens: any[] }) {
+       <div className="card p-6">
+         <div className="font-semibold mb-3">Connection Info</div>
+         <div className="text-sm space-y-1 font-mono bg-slate-50 p-3 rounded">
+-          <div>URL: <span className="text-brand-700">http://your-server:4000/mcp</span></div>
++          <div className="flex items-center gap-2">URL: <span className="text-brand-700">{mcpUrl}</span> <button onClick={() => copy(mcpUrl)} className="text-slate-400 hover:text-slate-600"><Copy size={12}/></button></div>
+           <div>Auth: Bearer token (Authorization header)</div>
+           <div>Persistence: no expiry — connection stays alive</div>
+         </div>
+-        <div className="text-xs text-slate-500 mt-2">Start with: <code className="bg-slate-100 px-1 rounded">cd mcp-server &amp;&amp; npm start</code></div>
++        <div className="text-xs text-slate-500 mt-2">Runs as a separate Node process (mcp-server/) — see brain.md for how it's exposed on this domain.</div>
+       </div>
+ 
+       <div className="card p-6">
