@@ -1,7 +1,5 @@
 import "./globals.css";
 import type { Metadata } from "next";
-import Header from "@/components/layout/Header";
-import Footer from "@/components/layout/Footer";
 import { prisma } from "@/lib/db";
 
 export const metadata: Metadata = {
@@ -11,17 +9,19 @@ export const metadata: Metadata = {
   openGraph: { type: "website", siteName: "Products in Malta" }
 };
 
-async function getGlobals() {
-  const [cats, settings] = await Promise.all([
-    prisma.category.findMany({ orderBy: { order: "asc" } }),
-    prisma.setting.findMany()
-  ]);
-  const s = Object.fromEntries(settings.map(x => [x.key, x.value]));
-  return { cats, s };
+async function getTrackingSettings() {
+  try {
+    const settings = await prisma.setting.findMany({
+      where: { key: { in: ["ga4_id", "meta_pixel_id", "gsc_verification"] } }
+    });
+    return Object.fromEntries(settings.map(x => [x.key, x.value]));
+  } catch (err) {
+    return {};
+  }
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const { cats, s } = await getGlobals();
+  const s = await getTrackingSettings();
   return (
     <html lang="en">
       <head>
@@ -42,10 +42,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         )}
         {s.gsc_verification && <meta name="google-site-verification" content={s.gsc_verification} />}
       </head>
-      <body>
-        <Header categories={cats} siteName={s.site_name || "Products in Malta"} />
-        <main className="min-h-[60vh]">{children}</main>
-        <Footer categories={cats} settings={s} />
+      <body className="antialiased selection:bg-brand-500 selection:text-white">
+        {children}
       </body>
     </html>
   );

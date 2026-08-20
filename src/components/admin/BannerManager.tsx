@@ -11,9 +11,10 @@ type Banner = {
 
 const SLOTS: { key: string; label: string; ratio: string; where: string; recommend: string }[] = [
   { key: "hero",        label: "Hero Slider",    ratio: "aspect-[21/7]",  where: "Top of homepage — rotates every 5s",                     recommend: "1600 × 600" },
+  { key: "promo",       label: "Promo Strip",    ratio: "aspect-[21/3]",  where: "Homepage: thin promo bar under hero",                    recommend: "1600 × 220" },
+  { key: "triple",      label: "Triple Poster",  ratio: "aspect-[16/10]", where: "Homepage: 3-column small posters row",                   recommend: "800 × 500" },
   { key: "double",      label: "Double Poster",  ratio: "aspect-[16/9]",  where: "Homepage: shown as a 2-up promo row",                    recommend: "800 × 450" },
   { key: "middle",      label: "Middle Banner",  ratio: "aspect-[21/5]",  where: "Homepage: full-width strip between product rows",        recommend: "1600 × 380" },
-  { key: "promo",       label: "Promo Strip",    ratio: "aspect-[21/3]",  where: "Homepage: thin promo bar under hero",                    recommend: "1600 × 220" },
   { key: "category",    label: "Category Poster", ratio: "aspect-[4/3]",  where: "Category grid on homepage (uses Slot Key = category slug)", recommend: "800 × 600" },
   { key: "sidebar",     label: "Sidebar Poster", ratio: "aspect-[3/4]",   where: "Left sidebar on /products",                              recommend: "600 × 800" },
 ];
@@ -221,7 +222,20 @@ function BannerEditor({ banner, slot, slotLabel, slotRatio, slotRecommend, categ
                 <p className="text-[11px] text-ink-500 mt-1">This poster replaces the category's default image on the homepage.</p>
               </div>
             )}
-            {slot !== "category" && (
+            {slot === "triple" && (
+              <div className="md:col-span-2">
+                <div className="label">Badge Text</div>
+                <input className="input" placeholder="e.g. Trending Deals, Special Selection, Hot Offers" value={f.slotKey || ""} onChange={e => setF({ ...f, slotKey: e.target.value })} />
+                <p className="text-[11px] text-ink-500 mt-1">Shown as the orange pill in the top-left of the poster. Leave blank for no badge.</p>
+              </div>
+            )}
+            {slot === "double" && (
+              <div className="md:col-span-2">
+                <div className="label">Badge Text (optional)</div>
+                <input className="input" placeholder="e.g. Featured, Best of the Week" value={f.slotKey || ""} onChange={e => setF({ ...f, slotKey: e.target.value })} />
+              </div>
+            )}
+            {slot !== "category" && slot !== "triple" && slot !== "double" && (
               <div className="md:col-span-2">
                 <div className="label">Slot Key (optional)</div>
                 <input className="input" placeholder="Custom tag — leave blank if unsure" value={f.slotKey || ""} onChange={e => setF({ ...f, slotKey: e.target.value })} />

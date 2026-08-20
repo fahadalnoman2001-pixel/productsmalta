@@ -7,6 +7,9 @@ const prisma = new PrismaClient();
 const banners = [
   { title: "Free Shipping", subtitle: "On orders over €50", image: "https://picsum.photos/seed/promo1/1600/220", link: "/products", slot: "promo", order: 0 },
   { title: "New Customer? Save 10%", subtitle: "Use code WELCOME10", image: "https://picsum.photos/seed/promo2/1600/220", link: "/products", slot: "promo", order: 1 },
+  { title: "Smart Tech & Gadgets", subtitle: "Up to 45% off top-rated gear", image: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&auto=format&fit=crop&q=80", link: "/products?category=electronics", slot: "triple", slotKey: "Trending Deals", order: 0 },
+  { title: "Home & Modern Living", subtitle: "Upgrade your space with top picks", image: "https://images.unsplash.com/photo-1583847268964-b28dc8f51f92?w=800&auto=format&fit=crop&q=80", link: "/products?category=home-living", slot: "triple", slotKey: "Special Selection", order: 1 },
+  { title: "Style & Lifestyle Essentials", subtitle: "Curated fashion & accessories", image: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&auto=format&fit=crop&q=80", link: "/products?category=fashion", slot: "triple", slotKey: "Hot Offers", order: 2 },
   { title: "Summer Sale — Up to 60% Off", subtitle: "Handpicked deals across all categories", image: "https://picsum.photos/seed/middle1/1600/380", link: "/products?collection=weekend-sales", slot: "middle", order: 0 },
   { title: "Tech Deals", subtitle: "Laptops, phones & audio", image: "https://picsum.photos/seed/double1/800/450", link: "/products?category=electronics", slot: "double", order: 0 },
   { title: "Home & Living", subtitle: "Refresh your space", image: "https://picsum.photos/seed/double2/800/450", link: "/products?category=home-living", slot: "double", order: 1 },

@@ -37,9 +37,22 @@ export default function ProductForm({ product, cats, subs }: { product?: any; ca
   }
 
   async function del() {
-    if (!product || !confirm("Delete this product?")) return;
-    await fetch(`/api/products/${product.id}`, { method: "DELETE" });
-    router.push("/admin/products");
+    if (!product || !confirm(`Are you sure you want to delete "${product.title}"? This will permanently remove it from the database.`)) return;
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/products/${product.id}`, { method: "DELETE" });
+      if (res.ok) {
+        router.push("/admin/products");
+        router.refresh();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || "Failed to delete product from database");
+        setSaving(false);
+      }
+    } catch (err: any) {
+      alert("Error deleting product: " + (err?.message || "Unknown error"));
+      setSaving(false);
+    }
   }
 
   const availSubs = subs.filter(s => s.categoryId === f.categoryId);

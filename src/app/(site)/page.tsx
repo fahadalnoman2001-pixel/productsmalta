@@ -4,16 +4,18 @@ import CategoryGrid from "@/components/home/CategoryGrid";
 import ProductRow from "@/components/home/ProductRow";
 import BlogRow from "@/components/home/BlogRow";
 import PromoStrip from "@/components/home/PromoStrip";
+import TripleBanner from "@/components/home/TripleBanner";
 import MiddleBanner from "@/components/home/MiddleBanner";
 import DoubleBanner from "@/components/home/DoubleBanner";
 
 export const dynamic = "force-dynamic";
 
 async function getData() {
-  const [heroBanners, catBanners, promoBanners, middleBanners, doubleBanners, categories, homeCollections, topBlogs, categoryRows] = await Promise.all([
+  const [heroBanners, catBanners, promoBanners, tripleBanners, middleBanners, doubleBanners, categories, homeCollections, topBlogs, categoryRows] = await Promise.all([
     prisma.banner.findMany({ where: { slot: "hero", isActive: true }, orderBy: { order: "asc" } }),
     prisma.banner.findMany({ where: { slot: "category", isActive: true } }),
     prisma.banner.findMany({ where: { slot: "promo", isActive: true }, orderBy: { order: "asc" } }),
+    prisma.banner.findMany({ where: { slot: "triple", isActive: true }, orderBy: { order: "asc" } }),
     prisma.banner.findMany({ where: { slot: "middle", isActive: true }, orderBy: { order: "asc" } }),
     prisma.banner.findMany({ where: { slot: "double", isActive: true }, orderBy: { order: "asc" } }),
     prisma.category.findMany({ orderBy: { order: "asc" }, take: 12 }),
@@ -29,7 +31,7 @@ async function getData() {
       include: { products: { where: { isActive: true }, take: 10, orderBy: { createdAt: "desc" }, include: { category: true } } }
     })
   ]);
-  return { heroBanners, catBanners, promoBanners, middleBanners, doubleBanners, categories, homeCollections, topBlogs, categoryRows };
+  return { heroBanners, catBanners, promoBanners, tripleBanners, middleBanners, doubleBanners, categories, homeCollections, topBlogs, categoryRows };
 }
 
 async function productsForCollection(col: any) {
@@ -56,21 +58,7 @@ export default async function HomePage() {
       <HeroSlider banners={d.heroBanners} />
       <PromoStrip banners={d.promoBanners} />
 
-      <section className="container-x pt-4">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {[
-            { t: "Handpicked Deals", s: "Curated across Malta" },
-            { t: "Best Prices", s: "Updated daily" },
-            { t: "Trusted Brands", s: "Top platforms only" },
-            { t: "Buy in 1 Click", s: "Direct affiliate links" }
-          ].map(x => (
-            <div key={x.t} className="bg-white rounded-lg border border-ink-100 px-4 py-3">
-              <div className="text-sm font-bold text-ink-900">{x.t}</div>
-              <div className="text-xs text-ink-400">{x.s}</div>
-            </div>
-          ))}
-        </div>
-      </section>
+      <TripleBanner banners={d.tripleBanners} />
 
       <CategoryGrid categories={d.categories} banners={d.catBanners} />
 

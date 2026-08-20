@@ -1,13 +1,18 @@
 import Link from "next/link";
 
-/** Two side-by-side posters used to feature parallel promotions. */
+/** Side-by-side poster row (2 or 3 posters). Shows however many are active in the "double" slot. */
 export default function DoubleBanner({ banners }: { banners: any[] }) {
   if (!banners.length) return null;
-  const pair = banners.slice(0, 2);
+  const items = banners.slice(0, 3);
+  // Adapt grid: 1 → full width, 2 → 2-col, 3 → 3-col
+  const cols =
+    items.length === 3 ? "md:grid-cols-3" :
+    items.length === 2 ? "md:grid-cols-2" : "";
+
   return (
     <section className="container-x py-4">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {pair.map(b => (
+      <div className={`grid grid-cols-1 gap-4 ${cols}`}>
+        {items.map(b => (
           <Link key={b.id} href={b.link || "/products"} className="relative aspect-[16/9] rounded-xl overflow-hidden group border border-ink-100 block">
             <img src={b.image} alt={b.title} className="w-full h-full object-cover group-hover:scale-105 transition" />
             <div className="absolute inset-0 bg-gradient-to-t from-ink-900/85 via-ink-900/30 to-transparent flex flex-col justify-end p-5 text-white">
