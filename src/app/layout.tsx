@@ -3,10 +3,10 @@ import type { Metadata } from "next";
 import { prisma } from "@/lib/db";
 
 export const metadata: Metadata = {
-  title: { default: "Products in Malta — Curated Affiliate Deals & Guides", template: "%s | Products in Malta" },
-  description: "Discover the best products in Malta. Handpicked affiliate deals, buying guides, and reviews across electronics, fashion, home, beauty and more.",
-  metadataBase: new URL(process.env.SITE_URL || "https://productsinmalta.com"),
-  openGraph: { type: "website", siteName: "Products in Malta" }
+  title: { default: "YourOffer.eu — Curated Affiliate Deals & Buying Guides", template: "%s | YourOffer.eu" },
+  description: "Discover the best curated affiliate deals, discounts, and buying guides across electronics, fashion, home, beauty and more on YourOffer.eu.",
+  metadataBase: new URL(process.env.SITE_URL || "https://youroffers.eu"),
+  openGraph: { type: "website", siteName: "YourOffer.eu" }
 };
 
 async function getTrackingSettings() {

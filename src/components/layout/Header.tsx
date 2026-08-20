@@ -28,11 +28,12 @@ export default function Header({ categories, siteName }: { categories: any[]; si
           <button className="lg:hidden text-ink-800" onClick={() => setOpen(!open)} aria-label="menu">
             {open ? <X size={24} /> : <Menu size={24} />}
           </button>
-          <Link href="/" className="flex items-center gap-2 shrink-0">
-            <span className="grid place-items-center h-9 w-9 rounded-md bg-brand-500 text-white font-display font-extrabold">P</span>
-            <span className="font-display font-extrabold text-lg leading-none text-ink-900 hidden sm:block">
-              {siteName.split(" ").map((w, i) => <span key={i} className={i === 0 ? "" : "text-brand-500"}>{w} </span>)}
-            </span>
+          <Link href="/" className="flex items-center shrink-0">
+            <img
+              src="/logo.png"
+              alt={siteName || "YourOffer.eu"}
+              className="h-10 sm:h-12 w-auto max-w-[200px] sm:max-w-[240px] object-contain"
+            />
           </Link>
 
           <form action="/products" className="flex-1 max-w-2xl mx-auto">

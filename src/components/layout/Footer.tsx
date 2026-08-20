@@ -6,7 +6,9 @@ export default function Footer({ categories, settings }: { categories: any[]; se
     <footer className="mt-16 bg-slate-900 text-slate-300">
       <div className="container-x py-12 grid grid-cols-1 md:grid-cols-4 gap-8">
         <div>
-          <div className="text-white font-display font-extrabold text-lg mb-2">{settings.site_name || "Products in Malta"}</div>
+          <Link href="/" className="inline-block mb-3 bg-white/95 px-3 py-1.5 rounded-lg shadow-sm">
+            <img src="/logo.png" alt={settings.site_name || "YourOffer.eu"} className="h-8 w-auto object-contain" />
+          </Link>
           <p className="text-sm text-slate-400">{settings.site_tagline || "Curated affiliate deals & buying guides."}</p>
           <div className="flex gap-3 mt-4">
             {settings.facebook_url && <a href={settings.facebook_url} aria-label="Facebook"><Facebook size={18} /></a>}

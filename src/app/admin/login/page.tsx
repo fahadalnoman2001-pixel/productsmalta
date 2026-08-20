@@ -49,11 +49,11 @@ export default function AdminLoginPage() {
       <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden">
         {/* Header decoration */}
         <div className="bg-gradient-to-r from-brand-600 to-brand-500 px-8 py-7 text-white text-center relative">
-          <div className="inline-flex p-3 rounded-xl bg-white/10 backdrop-blur-md mb-3 ring-1 ring-white/20">
-            <ShieldCheck size={28} className="text-white" />
+          <div className="inline-flex p-3 rounded-xl bg-white backdrop-blur-md mb-3 shadow-sm">
+            <img src="/logo.png" alt="YourOffer.eu Logo" className="h-9 w-auto object-contain" />
           </div>
           <h1 className="font-display font-bold text-2xl tracking-tight">Admin Portal</h1>
-          <p className="text-brand-100 text-xs mt-1">Products in Malta Management Dashboard</p>
+          <p className="text-brand-100 text-xs mt-1">YourOffer.eu Management Dashboard</p>
         </div>
 
         {/* Form Body */}

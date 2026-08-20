@@ -38,15 +38,9 @@ export default function AdminSidebar({
     <aside className="w-64 bg-white border-r border-slate-200 min-h-screen flex flex-col justify-between p-4 sticky top-0 h-screen">
       <div>
         <div className="flex items-center gap-2 mb-6 px-2">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-brand-600 to-brand-400 flex items-center justify-center text-white font-bold text-lg shadow-sm">
-            P
-          </div>
-          <div>
-            <Link href="/admin" className="font-display font-extrabold text-base text-ink-900 leading-tight block">
-              Admin Panel
-            </Link>
-            <span className="text-[11px] text-ink-400 font-medium">Products in Malta</span>
-          </div>
+          <Link href="/admin" className="block">
+            <img src="/logo.png" alt="Admin Panel" className="h-8 w-auto object-contain" />
+          </Link>
         </div>
 
         <nav className="space-y-1 text-sm font-medium">
