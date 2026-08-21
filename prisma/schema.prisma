@@ -167,6 +167,7 @@ model MCPToken {
 model OAuthClient {
   id           String   @id @default(cuid())
   clientId     String   @unique
+  clientSecret String?  // For client_secret_post authentication
   redirectUris String   @db.Text // JSON-encoded string[]
   clientName   String?
   createdAt    DateTime @default(now())

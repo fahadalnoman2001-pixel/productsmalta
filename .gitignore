@@ -9,4 +9,5 @@ dist
 tsconfig.tsbuildinfo
 *.log
 *.tar.gz
-
+*.zip
+*.patch
