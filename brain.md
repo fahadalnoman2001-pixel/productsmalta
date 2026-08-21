@@ -38,9 +38,9 @@ This document serves as the single source of truth for the **Products in Malta**
 - **Database Password**: `LHG*WyH;o0`
 - **Prisma Connection URL**: `mysql://u783286479_bestdeals:LHG*WyH%3Bo0@127.0.0.1:3306/u783286479_bestdeals`
 
-### Default Admin Credentials (Seed Data)
-- **Email**: `admin@productsinmalta.com`
-- **Password**: `ChangeMe123!`
+### Admin Credentials
+- **Email**: `fahad@gmail.com`
+- **Password**: `TasminaBinte@19`
 - **Role**: `super_admin`
 
 ### GitHub Repository

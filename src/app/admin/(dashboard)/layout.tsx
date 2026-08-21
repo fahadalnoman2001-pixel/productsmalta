@@ -2,11 +2,15 @@ import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import AdminSidebar from "@/components/admin/AdminSidebar";
+import { redirect } from "next/navigation";
 
 export const metadata = { title: "Admin Portal | Products in Malta" };
 
 export default async function AdminDashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions);
+  if (!session || !session.user) {
+    redirect("/admin/login");
+  }
   const role = (session?.user as any)?.role;
   const email = session?.user?.email;
 

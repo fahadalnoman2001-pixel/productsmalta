@@ -51,11 +51,6 @@ function AdminLoginForm() {
     }
   }
 
-  function fillDemo() {
-    setEmail("admin@productsinmalta.com");
-    setPassword("ChangeMe123!");
-  }
-
   return (
     <div className="min-h-screen flex flex-col justify-center items-center bg-gradient-to-br from-slate-900 via-slate-800 to-ink-900 p-4 sm:p-6">
       {/* Container Card */}
@@ -88,7 +83,7 @@ function AdminLoginForm() {
                 type="email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
-                placeholder="admin@productsinmalta.com"
+                placeholder="name@example.com"
                 required
                 className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition"
               />
@@ -126,21 +121,6 @@ function AdminLoginForm() {
               <span>Sign In to Dashboard</span>
             )}
           </button>
-
-          {/* Quick Demo Credentials Helper */}
-          <div className="p-3 bg-slate-50 rounded-lg border border-slate-100 text-center">
-            <p className="text-[11px] text-slate-500 mb-1">Default credentials:</p>
-            <code className="text-[11px] font-mono text-slate-700 block select-all">
-              admin@productsinmalta.com / ChangeMe123!
-            </code>
-            <button
-              type="button"
-              onClick={fillDemo}
-              className="mt-1.5 text-[11px] text-brand-600 hover:text-brand-700 font-semibold underline underline-offset-2 cursor-pointer"
-            >
-              Click to autofill
-            </button>
-          </div>
         </form>
 
         {/* Footer Link */}
