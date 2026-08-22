@@ -60,15 +60,21 @@ export default function ProductForm({ product, cats, subs }: { product?: any; ca
   return (
     <form onSubmit={save} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <div className="lg:col-span-2 space-y-4 card p-6">
-        <div><div className="label">Title *</div><input className="input" value={f.title} onChange={e => setF({...f, title: e.target.value})} required /></div>
-        <div><div className="label">Slug (auto if blank)</div><input className="input" value={f.slug} onChange={e => setF({...f, slug: e.target.value})} /></div>
-        <div><div className="label">Short Description</div><input className="input" value={f.shortDesc} onChange={e => setF({...f, shortDesc: e.target.value})} /></div>
-        <div><div className="label">Full Description *</div><textarea rows={5} className="input" value={f.description} onChange={e => setF({...f, description: e.target.value})} required /></div>
-        <div><div className="label">Image URLs (one per line)</div><textarea rows={4} className="input font-mono text-xs" value={f.images} onChange={e => setF({...f, images: e.target.value})} placeholder="https://..." /></div>
-        <div><div className="label">Tags (comma-separated)</div><input className="input" value={f.tags} onChange={e => setF({...f, tags: e.target.value})} /></div>
+        <div><div className="label">Title *</div><input className="input" value={f.title || ""} onChange={e => setF({...f, title: e.target.value})} required /></div>
+        <div><div className="label">Slug (auto if blank)</div><input className="input" value={f.slug || ""} onChange={e => setF({...f, slug: e.target.value})} /></div>
+        <div>
+          <div className="label">Short Description (Quick Overview)</div>
+          <textarea rows={2} className="input" value={f.shortDesc || ""} onChange={e => setF({...f, shortDesc: e.target.value})} placeholder="Brief highlights shown at the top of the product page next to the price and Buy button..." />
+        </div>
+        <div>
+          <div className="label">Full Description * (Detailed Overview)</div>
+          <textarea rows={6} className="input" value={f.description || ""} onChange={e => setF({...f, description: e.target.value})} placeholder="Complete product features, specifications, and details shown in the Product Description section below..." required />
+        </div>
+        <div><div className="label">Image URLs (one per line)</div><textarea rows={4} className="input font-mono text-xs" value={f.images || ""} onChange={e => setF({...f, images: e.target.value})} placeholder="https://..." /></div>
+        <div><div className="label">Tags (comma-separated)</div><input className="input" value={f.tags || ""} onChange={e => setF({...f, tags: e.target.value})} /></div>
         <div className="grid grid-cols-2 gap-3">
-          <div><div className="label">SEO Title</div><input className="input" value={f.seoTitle} onChange={e => setF({...f, seoTitle: e.target.value})} /></div>
-          <div><div className="label">SEO Description</div><input className="input" value={f.seoDescription} onChange={e => setF({...f, seoDescription: e.target.value})} /></div>
+          <div><div className="label">SEO Title</div><input className="input" value={f.seoTitle || ""} onChange={e => setF({...f, seoTitle: e.target.value})} /></div>
+          <div><div className="label">SEO Description</div><input className="input" value={f.seoDescription || ""} onChange={e => setF({...f, seoDescription: e.target.value})} /></div>
         </div>
       </div>
       <div className="space-y-4">
