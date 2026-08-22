@@ -1,6 +1,8 @@
 import "./globals.css";
 import type { Metadata } from "next";
 import { prisma } from "@/lib/db";
+import Script from "next/script";
+import GoogleAnalytics from "@/components/analytics/GoogleAnalytics";
 
 const siteBase = process.env.SITE_URL || "https://youroffers.eu";
 
@@ -100,29 +102,15 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}
         />
 
-        {/* Google tag (gtag.js) */}
-        <script async src={`https://www.googletagmanager.com/gtag/js?id=${gaId}`}></script>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              window.dataLayer = window.dataLayer || [];
-              function gtag(){dataLayer.push(arguments);}
-              gtag('js', new Date());
-              gtag('config', '${gaId}');
-            `
-          }}
-        />
-
         {s.meta_pixel_id && (
-          <script
-            dangerouslySetInnerHTML={{
-              __html: `!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js'); fbq('init','${s.meta_pixel_id}'); fbq('track','PageView');`
-            }}
-          />
+          <Script id="meta-pixel" strategy="afterInteractive">
+            {`!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js'); fbq('init','${s.meta_pixel_id}'); fbq('track','PageView');`}
+          </Script>
         )}
         {s.gsc_verification && <meta name="google-site-verification" content={s.gsc_verification} />}
       </head>
       <body className="antialiased selection:bg-brand-500 selection:text-white">
+        <GoogleAnalytics gaId={gaId} />
         {children}
       </body>
     </html>
