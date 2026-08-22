@@ -38,8 +38,21 @@ export default function BlogForm({ blog, cats }: { blog?: any; cats: any[] }) {
   }
   async function del() {
     if (!blog || !confirm("Delete this blog?")) return;
-    await fetch(`/api/blogs/${blog.id}`, { method: "DELETE" });
-    router.push("/admin/blogs");
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/blogs/${blog.id}`, { method: "DELETE" });
+      if (res.ok) {
+        router.push("/admin/blogs");
+        router.refresh();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || "Failed to delete blog");
+        setSaving(false);
+      }
+    } catch (err: any) {
+      alert("Error deleting blog: " + (err?.message || "Unknown error"));
+      setSaving(false);
+    }
   }
 
   return (

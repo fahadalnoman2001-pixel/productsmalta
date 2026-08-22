@@ -16,8 +16,17 @@ export default function MCPPanel({ tokens, mcpUrl }: { tokens: any[]; mcpUrl: st
   }
   async function del(id: string) {
     if (!confirm("Revoke this token?")) return;
-    await fetch(`/api/mcp/tokens?id=${id}`, { method: "DELETE" });
-    router.refresh();
+    try {
+      const res = await fetch(`/api/mcp/tokens?id=${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || "Failed to revoke token");
+      } else {
+        router.refresh();
+      }
+    } catch (err: any) {
+      alert("Error revoking token: " + (err?.message || "Unknown error"));
+    }
   }
   function copy(t: string) { navigator.clipboard.writeText(t); }
 

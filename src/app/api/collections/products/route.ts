@@ -16,9 +16,16 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  const collectionId = req.nextUrl.searchParams.get("collectionId")!;
-  const productId = req.nextUrl.searchParams.get("productId")!;
-  await prisma.collectionProduct.delete({ where: { collectionId_productId: { collectionId, productId } } });
-  return NextResponse.json({ ok: true });
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const collectionId = req.nextUrl.searchParams.get("collectionId");
+  const productId = req.nextUrl.searchParams.get("productId");
+  if (!collectionId || !productId) return NextResponse.json({ error: "Missing parameters" }, { status: 400 });
+
+  try {
+    await prisma.collectionProduct.deleteMany({ where: { collectionId, productId } });
+    return NextResponse.json({ ok: true });
+  } catch (error: any) {
+    console.error("Error removing product from collection:", error);
+    return NextResponse.json({ error: error?.message || "Failed to remove product from collection" }, { status: 500 });
+  }
 }

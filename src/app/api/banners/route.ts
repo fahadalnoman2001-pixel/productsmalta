@@ -58,8 +58,15 @@ export async function PATCH(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  const id = req.nextUrl.searchParams.get("id")!;
-  await prisma.banner.delete({ where: { id } });
-  return NextResponse.json({ ok: true });
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const id = req.nextUrl.searchParams.get("id");
+  if (!id) return NextResponse.json({ error: "Missing id parameter" }, { status: 400 });
+
+  try {
+    await prisma.banner.delete({ where: { id } });
+    return NextResponse.json({ ok: true, id });
+  } catch (error: any) {
+    console.error("Error deleting banner:", error);
+    return NextResponse.json({ error: error?.message || "Failed to delete banner" }, { status: 500 });
+  }
 }

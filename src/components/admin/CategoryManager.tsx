@@ -26,25 +26,53 @@ export default function CategoryManager({ cats, subs }: { cats: any[]; subs: any
 
   async function delCat(id: string) {
     if (!confirm("Delete this category and all its subcategories? This cannot be undone.")) return;
-    await fetch(`/api/categories?id=${id}`, { method: "DELETE" });
-    router.refresh();
+    try {
+      const res = await fetch(`/api/categories?id=${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || "Failed to delete category");
+      } else {
+        router.refresh();
+      }
+    } catch (err: any) {
+      alert("Error deleting category: " + (err?.message || "Unknown error"));
+    }
   }
 
   async function addSub(categoryId: string) {
     const v = newSub[categoryId];
     if (!v?.trim()) return;
-    await fetch("/api/categories?type=sub", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: v, slug: slugify(v), categoryId })
-    });
-    setNewSub({ ...newSub, [categoryId]: "" });
-    router.refresh();
+    try {
+      const res = await fetch("/api/categories?type=sub", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: v, slug: slugify(v), categoryId })
+      });
+      if (res.ok) {
+        setNewSub({ ...newSub, [categoryId]: "" });
+        router.refresh();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || "Failed to add subcategory");
+      }
+    } catch (err: any) {
+      alert("Error adding subcategory: " + (err?.message || "Unknown error"));
+    }
   }
 
   async function delSub(id: string) {
-    await fetch(`/api/categories?type=sub&id=${id}`, { method: "DELETE" });
-    router.refresh();
+    if (!confirm("Delete this subcategory?")) return;
+    try {
+      const res = await fetch(`/api/categories?type=sub&id=${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || "Failed to delete subcategory");
+      } else {
+        router.refresh();
+      }
+    } catch (err: any) {
+      alert("Error deleting subcategory: " + (err?.message || "Unknown error"));
+    }
   }
 
   function startEditing(c: any) {

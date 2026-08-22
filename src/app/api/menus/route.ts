@@ -107,11 +107,16 @@ export async function PUT(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const id = req.nextUrl.searchParams.get("id");
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
-  await prisma.menuItem.delete({ where: { id } });
-  return NextResponse.json({ ok: true });
+  try {
+    await prisma.menuItem.delete({ where: { id } });
+    return NextResponse.json({ ok: true, id });
+  } catch (error: any) {
+    console.error("Error deleting menu item:", error);
+    return NextResponse.json({ error: error?.message || "Failed to delete menu item" }, { status: 500 });
+  }
 }

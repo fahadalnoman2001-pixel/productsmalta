@@ -93,8 +93,17 @@ function BannerCard({ b, slot, isFirst, isLast, onEdit, onChange }:
   }
   async function del() {
     if (!confirm("Delete this banner?")) return;
-    await fetch(`/api/banners?id=${b.id}`, { method: "DELETE" });
-    onChange();
+    try {
+      const res = await fetch(`/api/banners?id=${b.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || "Failed to delete banner");
+      } else {
+        onChange();
+      }
+    } catch (err: any) {
+      alert("Error deleting banner: " + (err?.message || "Unknown error"));
+    }
   }
 
   return (

@@ -14,7 +14,12 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  await prisma.blog.delete({ where: { id: params.id } });
-  return NextResponse.json({ ok: true });
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try {
+    await prisma.blog.delete({ where: { id: params.id } });
+    return NextResponse.json({ ok: true, id: params.id });
+  } catch (error: any) {
+    console.error("Error deleting blog:", error);
+    return NextResponse.json({ error: error?.message || "Failed to delete blog" }, { status: 500 });
+  }
 }

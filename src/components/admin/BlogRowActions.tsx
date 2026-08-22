@@ -16,8 +16,19 @@ export default function BlogRowActions({ id, slug, isPublished }: { id: string; 
   async function del() {
     if (!confirm("Delete this blog?")) return;
     setBusy(true);
-    await fetch(`/api/blogs/${id}`, { method: "DELETE" });
-    setBusy(false); router.refresh();
+    try {
+      const res = await fetch(`/api/blogs/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || "Failed to delete blog");
+      } else {
+        router.refresh();
+      }
+    } catch (err: any) {
+      alert("Error deleting blog: " + (err?.message || "Unknown error"));
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (

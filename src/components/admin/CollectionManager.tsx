@@ -18,20 +18,51 @@ export default function CollectionManager({ cols, products }: { cols: any[]; pro
     setNewName(""); router.refresh();
   }
   async function del(id: string) {
-    if (!confirm("Delete collection?")) return;
-    await fetch(`/api/collections?id=${id}`, { method: "DELETE" });
-    router.refresh();
+    if (!confirm("Delete this collection?")) return;
+    try {
+      const res = await fetch(`/api/collections?id=${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || "Failed to delete collection");
+      } else {
+        router.refresh();
+      }
+    } catch (err: any) {
+      alert("Error deleting collection: " + (err?.message || "Unknown error"));
+    }
   }
   async function addProd(collectionId: string) {
     const pid = addTo[collectionId];
     if (!pid) return;
-    await fetch("/api/collections/products", { method: "POST", headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({ collectionId, productId: pid }) });
-    setAddTo({ ...addTo, [collectionId]: "" }); router.refresh();
+    try {
+      const res = await fetch("/api/collections/products", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ collectionId, productId: pid })
+      });
+      if (res.ok) {
+        setAddTo({ ...addTo, [collectionId]: "" });
+        router.refresh();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || "Failed to add product to collection");
+      }
+    } catch (err: any) {
+      alert("Error adding product: " + (err?.message || "Unknown error"));
+    }
   }
   async function delProd(collectionId: string, productId: string) {
-    await fetch(`/api/collections/products?collectionId=${collectionId}&productId=${productId}`, { method: "DELETE" });
-    router.refresh();
+    try {
+      const res = await fetch(`/api/collections/products?collectionId=${collectionId}&productId=${productId}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || "Failed to remove product from collection");
+      } else {
+        router.refresh();
+      }
+    } catch (err: any) {
+      alert("Error removing product: " + (err?.message || "Unknown error"));
+    }
   }
 
   return (
