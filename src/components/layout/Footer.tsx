@@ -44,7 +44,7 @@ export default function Footer({ categories, settings }: { categories: any[]; se
           </ul>
         </div>
       </div>
-      <div className="border-t border-slate-800 py-4 text-center text-xs text-slate-500">
+      <div className="border-t border-slate-800 py-4 text-center text-xs text-slate-500" suppressHydrationWarning>
         © {new Date().getFullYear()} {settings.site_name || "YourOffers.eu"}. All rights reserved.
         &nbsp;·&nbsp;Some links are affiliate links; we may earn a commission at no extra cost to you.
       </div>

@@ -198,10 +198,10 @@ export default function MCPPanel({ tokens, mcpUrl }: { tokens: any[]; mcpUrl: st
                     <td className="font-mono text-xs text-slate-600">
                       {t.token.slice(0, 10)}...{t.token.slice(-4)}
                     </td>
-                    <td className="text-xs text-slate-500">
+                    <td className="text-xs text-slate-500" suppressHydrationWarning>
                       {new Date(t.createdAt).toLocaleDateString()}
                     </td>
-                    <td className="text-xs text-slate-500">
+                    <td className="text-xs text-slate-500" suppressHydrationWarning>
                       {t.lastUsed ? new Date(t.lastUsed).toLocaleString() : "Never"}
                     </td>
                     <td className="text-right">
