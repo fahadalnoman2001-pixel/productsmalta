@@ -38,6 +38,9 @@ export const metadata: Metadata = {
     type: "website",
     siteName: "YourOffers.eu",
     locale: "en_EU"
+  },
+  verification: {
+    google: process.env.GSC_VERIFICATION || undefined
   }
 };
 
