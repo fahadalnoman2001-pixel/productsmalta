@@ -11,7 +11,7 @@ export default function CategoryGrid({ categories, banners }: { categories: any[
         <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-8 gap-3">
           {categories.map(c => {
             const b = bMap.get(c.slug);
-            const img = b?.image || `https://picsum.photos/seed/${c.slug}/300/300`;
+            const img = c.image || b?.image || `https://picsum.photos/seed/${c.slug}/300/300`;
             return (
               <Link key={c.id} href={`/products?category=${c.slug}`} className="group flex flex-col items-center gap-2 text-center">
                 <div className="h-16 w-16 md:h-20 md:w-20 rounded-full overflow-hidden bg-brand-50 ring-1 ring-ink-100 group-hover:ring-brand-300 transition">

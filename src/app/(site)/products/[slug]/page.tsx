@@ -11,10 +11,26 @@ export const revalidate = 60;
 export async function generateMetadata({ params }: { params: { slug: string } }) {
   const p = await prisma.product.findUnique({ where: { slug: params.slug } });
   if (!p) return {};
+  const imgs = parseJSON<string[]>(p.images, []);
+  const tags = parseJSON<string[]>(p.tags, []);
+  const metaTitle = p.seoTitle || `${p.title} | ${p.brand || "Products in Malta"}`;
+  const metaDesc = p.seoDescription || p.shortDesc || p.description.slice(0, 160);
+
   return {
-    title: p.seoTitle || p.title,
-    description: p.seoDescription || p.shortDesc || p.description.slice(0, 160),
-    openGraph: { images: parseJSON<string[]>(p.images, []).slice(0, 1) }
+    title: metaTitle,
+    description: metaDesc,
+    keywords: tags.length > 0 ? tags.join(", ") : undefined,
+    openGraph: {
+      title: metaTitle,
+      description: metaDesc,
+      images: imgs.slice(0, 1)
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: metaTitle,
+      description: metaDesc,
+      images: imgs.slice(0, 1)
+    }
   };
 }
 

@@ -17,6 +17,8 @@ export async function POST(req: NextRequest) {
     const c = await prisma.subcategory.create({ data: body });
     return NextResponse.json(c);
   }
+  if (Array.isArray(body.tags)) body.tags = JSON.stringify(body.tags);
+  if (body.order !== undefined) body.order = parseInt(body.order) || 0;
   const c = await prisma.category.create({ data: body });
   return NextResponse.json(c);
 }
@@ -26,7 +28,13 @@ export async function PATCH(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const id = req.nextUrl.searchParams.get("id")!;
   const body = await req.json();
-  delete body.id; delete body.subcategories;
+  delete body.id;
+  delete body.subcategories;
+  delete body.products;
+  delete body.blogs;
+  delete body.createdAt;
+  if (Array.isArray(body.tags)) body.tags = JSON.stringify(body.tags);
+  if (body.order !== undefined) body.order = parseInt(body.order) || 0;
   const c = await prisma.category.update({ where: { id }, data: body });
   return NextResponse.json(c);
 }

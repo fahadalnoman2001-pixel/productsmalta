@@ -3,7 +3,34 @@ import Link from "next/link";
 import { CalendarDays } from "lucide-react";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Blog — Guides, Reviews & Shopping Tips" };
+
+export async function generateMetadata({ searchParams }: { searchParams: Record<string, string> }) {
+  const catSlug = searchParams.category;
+  const q = searchParams.q;
+
+  if (catSlug) {
+    const c = await prisma.category.findUnique({ where: { slug: catSlug } });
+    if (c) {
+      return {
+        title: c.seoTitle ? `${c.seoTitle} — Blog` : `${c.name} Guides & Tips — Blog`,
+        description: c.seoDescription || c.description || `Expert buying guides, reviews, and tips for ${c.name} in Malta.`,
+        openGraph: { images: c.image ? [c.image] : [] }
+      };
+    }
+  }
+
+  if (q) {
+    return {
+      title: `Search: “${q}” — Blog Articles`,
+      description: `Articles and guides matching "${q}" on productsinmalta.com.`
+    };
+  }
+
+  return {
+    title: "Blog — Guides, Reviews & Shopping Tips in Malta",
+    description: "Guides, reviews, and smart shopping tips for online products in Malta."
+  };
+}
 
 export default async function BlogList({ searchParams }: { searchParams: Record<string,string> }) {
   const catSlug = searchParams.category;

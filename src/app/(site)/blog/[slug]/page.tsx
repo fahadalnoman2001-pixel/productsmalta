@@ -7,12 +7,25 @@ import { CalendarDays, User, Clock } from "lucide-react";
 export const revalidate = 60;
 
 export async function generateMetadata({ params }: { params: { slug: string } }) {
-  const b = await prisma.blog.findUnique({ where: { slug: params.slug } });
+  const b = await prisma.blog.findUnique({ where: { slug: params.slug }, include: { category: true } });
   if (!b) return {};
+  const tags = parseJSON<string[]>(b.tags, []);
   return {
-    title: b.seoTitle || b.title,
+    title: b.seoTitle || `${b.title} | Products in Malta`,
     description: b.seoDescription || b.excerpt || b.title,
-    openGraph: { images: b.coverImage ? [b.coverImage] : [], type: "article" }
+    keywords: tags.length > 0 ? tags.join(", ") : undefined,
+    openGraph: {
+      title: b.seoTitle || b.title,
+      description: b.seoDescription || b.excerpt || b.title,
+      images: b.coverImage ? [b.coverImage] : [],
+      type: "article"
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: b.seoTitle || b.title,
+      description: b.seoDescription || b.excerpt || b.title,
+      images: b.coverImage ? [b.coverImage] : []
+    }
   };
 }
 
@@ -52,10 +65,15 @@ export default async function BlogDetail({ params }: { params: { slug: string } 
   });
 
   const schema = {
-    "@context": "https://schema.org", "@type": "Article",
-    headline: b.title, image: b.coverImage ? [b.coverImage] : [], datePublished: b.createdAt, dateModified: b.updatedAt,
+    "@context": "https://schema.org",
+    "@type": "Article",
+    headline: b.seoTitle || b.title,
+    image: b.coverImage ? [b.coverImage] : [],
+    datePublished: b.createdAt,
+    dateModified: b.updatedAt,
     author: { "@type": "Person", name: b.author },
-    description: b.excerpt || b.seoDescription,
+    description: b.seoDescription || b.excerpt || b.title,
+    keywords: tags.length > 0 ? tags.join(", ") : undefined,
     mainEntityOfPage: { "@type": "WebPage" }
   };
 

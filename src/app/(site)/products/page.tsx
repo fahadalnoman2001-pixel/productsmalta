@@ -3,12 +3,64 @@ import ProductCard from "@/components/product/ProductCard";
 import ProductSort from "@/components/product/ProductSort";
 import SidebarPoster from "@/components/SidebarPoster";
 import Link from "next/link";
-import { SlidersHorizontal } from "lucide-react";
+import { SlidersHorizontal, Tag } from "lucide-react";
+import { parseJSON } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "All Products — Best Affiliate Deals in Malta" };
 
-export default async function ProductsPage({ searchParams }: { searchParams: Record<string,string> }) {
+export async function generateMetadata({ searchParams }: { searchParams: Record<string, string> }) {
+  const categorySlug = searchParams.category;
+  const collectionSlug = searchParams.collection;
+  const q = searchParams.q;
+
+  if (categorySlug) {
+    const c = await prisma.category.findUnique({ where: { slug: categorySlug } });
+    if (c) {
+      const tags = parseJSON<string[]>(c.tags, []);
+      return {
+        title: c.seoTitle || `${c.name} — Best Products & Deals in Malta`,
+        description: c.seoDescription || c.description || `Browse the best ${c.name} deals, top picks, and verified offers in Malta.`,
+        keywords: tags.length > 0 ? tags.join(", ") : undefined,
+        openGraph: {
+          title: c.seoTitle || `${c.name} — Best Deals in Malta`,
+          description: c.seoDescription || c.description || `Explore ${c.name} products and deals in Malta.`,
+          images: c.image ? [c.image] : []
+        },
+        twitter: {
+          card: "summary_large_image",
+          title: c.seoTitle || `${c.name} — Best Deals in Malta`,
+          description: c.seoDescription || c.description || `Explore ${c.name} products and deals in Malta.`,
+          images: c.image ? [c.image] : []
+        }
+      };
+    }
+  }
+
+  if (collectionSlug) {
+    const col = await prisma.collection.findUnique({ where: { slug: collectionSlug } });
+    if (col) {
+      return {
+        title: `${col.name} — Curated Deals in Malta`,
+        description: col.description || `Browse our curated ${col.name} collection of top products in Malta.`,
+        openGraph: { images: col.image ? [col.image] : [] }
+      };
+    }
+  }
+
+  if (q) {
+    return {
+      title: `Search: “${q}” — Best Deals in Malta`,
+      description: `Search results for ${q} on productsinmalta.com. Discover top deals and products.`
+    };
+  }
+
+  return {
+    title: "All Products — Best Affiliate Deals in Malta",
+    description: "Browse all products, trending offers, and verified deals in Malta across top shopping categories."
+  };
+}
+
+export default async function ProductsPage({ searchParams }: { searchParams: Record<string, string> }) {
   const q = searchParams.q?.toLowerCase();
   const categorySlug = searchParams.category;
   const brand = searchParams.brand;
@@ -33,7 +85,10 @@ export default async function ProductsPage({ searchParams }: { searchParams: Rec
 
   let activeCategory: any = null;
   if (categorySlug) {
-    activeCategory = await prisma.category.findUnique({ where: { slug: categorySlug } });
+    activeCategory = await prisma.category.findUnique({
+      where: { slug: categorySlug },
+      include: { subcategories: true }
+    });
     if (activeCategory) where.categoryId = activeCategory.id;
   }
   let activeCollection: any = null;
@@ -68,9 +123,37 @@ export default async function ProductsPage({ searchParams }: { searchParams: Rec
   return (
     <div className="container-x py-6">
       <nav className="text-sm text-ink-400 mb-3">
-        <Link href="/" className="hover:text-brand-600">Home</Link> / <span className="text-ink-600">{heading}</span>
+        <Link href="/" className="hover:text-brand-600 transition">Home</Link> / <span className="text-ink-600">{heading}</span>
       </nav>
-      <h1 className="font-display text-2xl md:text-3xl font-bold text-ink-900 mb-5">{heading}</h1>
+
+      {/* Category Header Card if category is active */}
+      {activeCategory ? (
+        <div className="bg-white rounded-xl border border-ink-100 p-6 mb-6 shadow-card flex flex-col md:flex-row gap-5 items-start md:items-center">
+          {activeCategory.image && (
+            <div className="w-20 h-20 md:w-24 md:h-24 rounded-xl overflow-hidden shrink-0 bg-brand-50 border border-ink-100 flex items-center justify-center">
+              <img src={activeCategory.image} alt={activeCategory.name} className="w-full h-full object-cover" />
+            </div>
+          )}
+          <div className="flex-1">
+            <h1 className="font-display text-2xl md:text-3xl font-extrabold text-ink-900">{activeCategory.name}</h1>
+            {activeCategory.description && (
+              <p className="text-sm text-ink-600 mt-1.5 leading-relaxed max-w-3xl">{activeCategory.description}</p>
+            )}
+            {activeCategory.subcategories?.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-ink-100">
+                <span className="text-xs font-semibold text-ink-400 uppercase tracking-wide self-center mr-1">Subcategories:</span>
+                {activeCategory.subcategories.map((sub: any) => (
+                  <span key={sub.id} className="text-xs bg-ink-50 hover:bg-brand-50 hover:text-brand-700 text-ink-700 font-medium px-2.5 py-1 rounded-md border border-ink-100 transition">
+                    {sub.name}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        <h1 className="font-display text-2xl md:text-3xl font-bold text-ink-900 mb-5">{heading}</h1>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-[250px_1fr] gap-6">
         <aside className="bg-white rounded-lg border border-ink-100 p-4 h-fit lg:sticky lg:top-24">

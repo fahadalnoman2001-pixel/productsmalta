@@ -29,6 +29,9 @@ model Category {
   image         String?       @db.Text
   order         Int           @default(0)
   showOnHomepage Boolean      @default(true)
+  seoTitle      String?
+  seoDescription String?      @db.Text
+  tags          String        @default("[]") @db.Text
   subcategories Subcategory[]
   products      Product[]
   blogs         Blog[]
