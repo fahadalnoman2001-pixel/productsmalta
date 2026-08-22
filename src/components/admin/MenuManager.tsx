@@ -133,7 +133,7 @@ export default function MenuManager({ initialItems, categories, collections }: M
     } else if (presetType === "category") {
       const c = categories.find(x => x.slug === val);
       if (c) {
-        setFormData(prev => ({ ...prev, label: c.name, url: `/products?category=${c.slug}` }));
+        setFormData(prev => ({ ...prev, label: c.name, url: `/category/${c.slug}` }));
       }
     } else if (presetType === "collection") {
       const col = collections.find(x => x.slug === val);
@@ -141,7 +141,7 @@ export default function MenuManager({ initialItems, categories, collections }: M
         setFormData(prev => ({
           ...prev,
           label: col.name,
-          url: `/products?collection=${col.slug}`,
+          url: `/collection/${col.slug}`,
           isHighlighted: col.slug.includes("sale") || col.slug.includes("deal")
         }));
       }

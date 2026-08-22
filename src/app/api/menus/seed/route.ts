@@ -34,13 +34,13 @@ export async function POST(req: NextRequest) {
     { label: "All Products", url: "/products", location: "main", order: 1 },
     ...categories.map((c, idx) => ({
       label: c.name,
-      url: `/products?category=${c.slug}`,
+      url: `/category/${c.slug}`,
       location: "main",
       order: 2 + idx
     })),
     {
-      label: "🔥 Weekend Sales",
-      url: "/products?collection=weekend-sales",
+      label: "Weekend Sales",
+      url: "/collection/weekend-sales",
       location: "main",
       order: 2 + categories.length,
       badge: "HOT",
