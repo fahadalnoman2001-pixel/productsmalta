@@ -32,7 +32,72 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   };
 }
 
-// Convert markdown, mixed markdown, and links to rich HTML
+// Parse GitHub-flavored markdown tables into responsive HTML tables
+function parseMarkdownTables(text: string): string {
+  const lines = text.split(/\r?\n/);
+  const result: string[] = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const currentLine = lines[i];
+    const nextLine = i + 1 < lines.length ? lines[i + 1] : "";
+
+    const isHeader = (currentLine.trim().startsWith("|") || currentLine.trim().endsWith("|")) && currentLine.trim().includes("|");
+    const isSeparator = /^\|?(\s*:?-+:?\s*\|)+\s*$/.test(nextLine.trim());
+
+    if (isHeader && isSeparator) {
+      const headerLine = currentLine.trim();
+      const separatorLine = nextLine.trim();
+      const tableRows: string[] = [];
+      i += 2;
+
+      while (i < lines.length && (lines[i].trim().startsWith("|") || lines[i].trim().endsWith("|")) && lines[i].trim().includes("|")) {
+        tableRows.push(lines[i].trim());
+        i++;
+      }
+
+      const alignments = separatorLine
+        .split("|")
+        .map(s => s.trim())
+        .filter((_, idx, arr) => (idx > 0 && idx < arr.length - 1) || (arr.length === 2 && idx === 0))
+        .map(col => {
+          if (col.startsWith(":") && col.endsWith(":")) return "center";
+          if (col.endsWith(":")) return "right";
+          if (col.startsWith(":")) return "left";
+          return "left";
+        });
+
+      const headerCells = headerLine
+        .split("|")
+        .map(s => s.trim())
+        .filter((_, idx, arr) => idx > 0 && idx < arr.length - 1)
+        .map((cell, idx) => `<th style="text-align: ${alignments[idx] || 'left'}">${cell}</th>`)
+        .join("");
+
+      const thead = `<thead><tr>${headerCells}</tr></thead>`;
+
+      const tbodyRows = tableRows.map(row => {
+        const cells = row
+          .split("|")
+          .map(s => s.trim())
+          .filter((_, idx, arr) => idx > 0 && idx < arr.length - 1)
+          .map((cell, idx) => `<td style="text-align: ${alignments[idx] || 'left'}">${cell}</td>`)
+          .join("");
+        return `<tr>${cells}</tr>`;
+      }).join("\n");
+
+      const tbody = `<tbody>\n${tbodyRows}\n</tbody>`;
+      result.push(`\n<div class="table-wrapper"><table class="blog-table">\n${thead}\n${tbody}\n</table></div>\n`);
+    } else {
+      result.push(currentLine);
+      i++;
+    }
+  }
+
+  return result.join("\n");
+}
+
+// Convert markdown, tables, mixed markdown, and links to rich HTML
 function toHtml(content: string) {
   if (!content) return "";
 
@@ -47,32 +112,41 @@ function toHtml(content: string) {
     return `<a href="${url}" ${isInternal ? "" : 'target="_blank" rel="noopener noreferrer nofollow"'} class="text-brand-600 hover:text-brand-700 underline font-medium">${label}</a>`;
   });
 
-  // If content is already rich standard HTML, return after markdown link & image conversion
+  // 3. Convert markdown tables before paragraph splitting
+  text = parseMarkdownTables(text);
+
+  // If content is already rich standard HTML, return after markdown link & table conversion
   const looksHtml = /<\/?(p|h[1-6]|ul|ol|li|blockquote|div)\b/i.test(text);
   if (looksHtml) {
-    return text;
+    return text
+      .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+      .replace(/\*([^*]+)\*/g, "<em>$1</em>");
   }
 
-  // 3. Convert headings
+  // 4. Convert headings
   text = text
     .replace(/^#### (.*)$/gm, "<h4>$1</h4>")
     .replace(/^### (.*)$/gm, "<h3>$1</h3>")
     .replace(/^## (.*)$/gm, "<h2>$1</h2>")
     .replace(/^# (.*)$/gm, "<h2>$1</h2>");
 
-  // 4. Convert bold & italic
+  // 5. Convert bold & italic
   text = text
     .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
     .replace(/\*([^*]+)\*/g, "<em>$1</em>");
 
-  // 5. Convert blockquotes
+  // 6. Convert blockquotes
   text = text.replace(/^> (.*)$/gm, "<blockquote>$1</blockquote>");
 
-  // 6. Split by double newlines into blocks
+  // 7. Split by double newlines into blocks
   const blocks = text.split(/\n{2,}/);
   const formattedBlocks = blocks.map(block => {
     const trimmed = block.trim();
     if (!trimmed) return "";
+
+    if (/^<div class="table-wrapper"/i.test(trimmed)) {
+      return trimmed;
+    }
 
     // If block is a list (contains bullets or numbering)
     const lines = trimmed.split("\n");
@@ -93,7 +167,7 @@ function toHtml(content: string) {
       return `<ul class="list-disc pl-5 space-y-1.5 my-3">\n${listItems}\n</ul>`;
     }
 
-    if (/^<(h[1-6]|blockquote|div|p|img)/i.test(trimmed)) {
+    if (/^<(h[1-6]|blockquote|div|p|img|table)/i.test(trimmed)) {
       return trimmed;
     }
 
