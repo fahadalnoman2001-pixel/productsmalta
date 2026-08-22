@@ -58,10 +58,10 @@ function AdminLoginForm() {
         {/* Header decoration */}
         <div className="bg-gradient-to-r from-brand-600 to-brand-500 px-8 py-7 text-white text-center relative">
           <div className="inline-flex p-3 rounded-xl bg-white backdrop-blur-md mb-3 shadow-sm">
-            <img src="/logo.png" alt="YourOffer.eu Logo" className="h-9 w-auto object-contain" />
+            <img src="/logo.png" alt="YourOffers.eu Logo" className="h-9 w-auto object-contain" />
           </div>
           <h1 className="font-display font-bold text-2xl tracking-tight">Admin Portal</h1>
-          <p className="text-brand-100 text-xs mt-1">YourOffer.eu Management Dashboard</p>
+          <p className="text-brand-100 text-xs mt-1">YourOffers.eu Management Dashboard</p>
         </div>
 
         {/* Form Body */}

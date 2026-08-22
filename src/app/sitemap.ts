@@ -2,7 +2,7 @@ import { MetadataRoute } from "next";
 import { prisma } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
-export const revalidate = 3600; // hourly
+export const revalidate = 3600; // regenerate hourly
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = process.env.SITE_URL || "https://youroffers.eu";
@@ -20,7 +20,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       }),
       prisma.category.findMany({ select: { slug: true } }),
       prisma.collection.findMany({
-        where: { isActive: true },
+        where: { showOnHomepage: true },
         select: { slug: true }
       })
     ]);
@@ -30,12 +30,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       { url: `${base}/`, changeFrequency: "daily", priority: 1.0, lastModified: now },
       { url: `${base}/products`, changeFrequency: "daily", priority: 0.9, lastModified: now },
       { url: `${base}/blog`, changeFrequency: "daily", priority: 0.8, lastModified: now },
-      { url: `${base}/about`, changeFrequency: "monthly", priority: 0.5, lastModified: now },
-      { url: `${base}/contact`, changeFrequency: "monthly", priority: 0.5, lastModified: now },
-      { url: `${base}/privacy`, changeFrequency: "yearly", priority: 0.2, lastModified: now },
-      { url: `${base}/terms`, changeFrequency: "yearly", priority: 0.2, lastModified: now },
+      { url: `${base}/about`, changeFrequency: "monthly", priority: 0.5 },
+      { url: `${base}/contact`, changeFrequency: "monthly", priority: 0.5 },
+      { url: `${base}/privacy`, changeFrequency: "yearly", priority: 0.2 },
+      { url: `${base}/terms`, changeFrequency: "yearly", priority: 0.2 },
 
-      // Category pages (/category/[slug])
+      // Category pages (once you migrate to /category/[slug] path)
       ...cats.map((c) => ({
         url: `${base}/category/${c.slug}`,
         changeFrequency: "daily" as const,
@@ -43,7 +43,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         lastModified: now
       })),
 
-      // Collection pages (/collection/[slug])
+      // Collections
       ...collections.map((c) => ({
         url: `${base}/collection/${c.slug}`,
         changeFrequency: "weekly" as const,
@@ -51,7 +51,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         lastModified: now
       })),
 
-      // Products
+      // Products — highest volume
       ...products.map((p) => ({
         url: `${base}/products/${p.slug}`,
         lastModified: p.updatedAt,

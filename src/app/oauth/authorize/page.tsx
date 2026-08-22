@@ -45,8 +45,8 @@ export default async function OAuthAuthorizePage({
     <div className="min-h-screen flex items-center justify-center bg-slate-900 p-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-8 space-y-5">
         <div className="text-center">
-          <img src="/logo.png" alt="YourOffer.eu" className="h-10 mx-auto mb-4" />
-          <h1 className="text-xl font-bold text-slate-900">Connect {client.clientName || "Claude"} to YourOffer.eu</h1>
+          <img src="/logo.png" alt="YourOffers.eu" className="h-10 mx-auto mb-4" />
+          <h1 className="text-xl font-bold text-slate-900">Connect {client.clientName || "Claude"} to YourOffers.eu</h1>
           <p className="text-sm text-slate-500 mt-2">
             Signed in as <span className="font-medium">{session!.user!.email}</span>. This will grant full read/write
             access to products, blogs, categories, collections, banners and settings via the MCP server. Tokens issued
