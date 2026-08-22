@@ -32,20 +32,81 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   };
 }
 
-// If content already contains HTML tags, render as-is. Otherwise treat the
-// legacy seed content as light markdown and convert the basics.
+// Convert markdown, mixed markdown, and links to rich HTML
 function toHtml(content: string) {
-  const looksHtml = /<\/?(p|h[1-6]|ul|ol|li|img|a|strong|em|blockquote|br|div)\b/i.test(content);
-  if (looksHtml) return content;
-  const html = content
+  if (!content) return "";
+
+  let text = content;
+
+  // 1. Convert markdown images: ![alt](url)
+  text = text.replace(/!\[([^\]]*)\]\((https?:\/\/[^\s\)\<\>]+|\/[^\s\)\<\>]+)\)/g, '<img src="$2" alt="$1" class="rounded-xl my-4 max-w-full h-auto" />');
+
+  // 2. Convert markdown links: [text](url) - supports inline and multiline splits
+  text = text.replace(/\[([^\]]+)\]\s*\(\s*(https?:\/\/[^\s\)\<\>]+|\/[^\s\)\<\>]+)\s*\)/g, (match, label, url) => {
+    const isInternal = url.startsWith("/");
+    return `<a href="${url}" ${isInternal ? "" : 'target="_blank" rel="noopener noreferrer nofollow"'} class="text-brand-600 hover:text-brand-700 underline font-medium">${label}</a>`;
+  });
+
+  // If content is already rich standard HTML, return after markdown link & image conversion
+  const looksHtml = /<\/?(p|h[1-6]|ul|ol|li|blockquote|div)\b/i.test(text);
+  if (looksHtml) {
+    return text;
+  }
+
+  // 3. Convert headings
+  text = text
+    .replace(/^#### (.*)$/gm, "<h4>$1</h4>")
     .replace(/^### (.*)$/gm, "<h3>$1</h3>")
     .replace(/^## (.*)$/gm, "<h2>$1</h2>")
-    .replace(/^# (.*)$/gm, "<h2>$1</h2>")
-    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-    .replace(/^\- (.*)$/gm, "<li>$1</li>")
-    .replace(/(<li>[\s\S]*?<\/li>)/g, "<ul>$1</ul>")
-    .split(/\n{2,}/).map(p => p.match(/^\s*<(h2|h3|ul|ol|blockquote)/) ? p : `<p>${p.trim()}</p>`).join("\n");
-  return html;
+    .replace(/^# (.*)$/gm, "<h2>$1</h2>");
+
+  // 4. Convert bold & italic
+  text = text
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*([^*]+)\*/g, "<em>$1</em>");
+
+  // 5. Convert blockquotes
+  text = text.replace(/^> (.*)$/gm, "<blockquote>$1</blockquote>");
+
+  // 6. Split by double newlines into blocks
+  const blocks = text.split(/\n{2,}/);
+  const formattedBlocks = blocks.map(block => {
+    const trimmed = block.trim();
+    if (!trimmed) return "";
+
+    // If block is a list (contains bullets or numbering)
+    const lines = trimmed.split("\n");
+    const isList = lines.some(l => /^[•\*\-]\s+|^\d+\.\s+/.test(l.trim()));
+
+    if (isList) {
+      const listItems = lines.map(line => {
+        const lTrim = line.trim();
+        if (/^[•\*\-]\s+(.*)$/.test(lTrim)) {
+          return lTrim.replace(/^[•\*\-]\s+(.*)$/, "<li>$1</li>");
+        }
+        if (/^\d+\.\s+(.*)$/.test(lTrim)) {
+          return lTrim.replace(/^\d+\.\s+(.*)$/, "<li>$1</li>");
+        }
+        return lTrim ? `<li>${lTrim}</li>` : "";
+      }).filter(Boolean).join("\n");
+
+      return `<ul class="list-disc pl-5 space-y-1.5 my-3">\n${listItems}\n</ul>`;
+    }
+
+    if (/^<(h[1-6]|blockquote|div|p|img)/i.test(trimmed)) {
+      return trimmed;
+    }
+
+    // Regular paragraph: convert single line breaks to <br />
+    const withBreaks = trimmed.replace(/\n/g, "<br />");
+    return `<p>${withBreaks}</p>`;
+  });
+
+  let output = formattedBlocks.filter(Boolean).join("\n\n");
+  // Merge consecutive <ul> lists into one
+  output = output.replace(/<\/ul>\s*<ul class="[^"]*">/g, "\n");
+
+  return output;
 }
 
 function readingTime(html: string) {
