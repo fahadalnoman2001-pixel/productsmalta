@@ -74,10 +74,19 @@ export default async function CategoryPage({
   const rating = searchParams.rating ? parseFloat(searchParams.rating) : undefined;
   const sort = searchParams.sort || "new";
 
+  const subcategorySlug = searchParams.subcategory;
+  const activeSubcategory = subcategorySlug
+    ? c.subcategories.find(s => s.slug === subcategorySlug)
+    : null;
+
   const where: any = {
     isActive: true,
     categoryId: c.id
   };
+
+  if (activeSubcategory) {
+    where.subcategoryId = activeSubcategory.id;
+  }
 
   if (q) {
     where.OR = [

@@ -12,7 +12,8 @@ import {
   LayoutGrid,
   Flame,
   Sparkles,
-  Layers
+  ArrowRight,
+  FolderOpen
 } from "lucide-react";
 
 export default function Header({
@@ -25,7 +26,11 @@ export default function Header({
   menuItems?: any[];
 }) {
   const [open, setOpen] = useState(false);
-  const [catOpen, setCatOpen] = useState(false);
+  const [catMenuOpen, setCatMenuOpen] = useState(false);
+  const [selectedCatId, setSelectedCatId] = useState<string | null>(
+    categories[0]?.id || null
+  );
+  const [mobileExpandedCat, setMobileExpandedCat] = useState<string | null>(null);
 
   const topNav = menuItems.filter(m => m.location === "topbar" && m.isActive);
   const mainNav = menuItems.filter(m => m.location === "main" && m.isActive);
@@ -34,6 +39,9 @@ export default function Header({
   const hasHighlightedInMainNav = mainNav.some(
     m => m.isHighlighted || m.label.toLowerCase().includes("weekend")
   );
+
+  const selectedCategory =
+    categories.find(c => c.id === selectedCatId) || categories[0] || null;
 
   function getBadgeStyle(color?: string | null) {
     switch (color) {
@@ -177,13 +185,17 @@ export default function Header({
         </div>
       </div>
 
-      {/* Polished Category & Main Nav Bar */}
+      {/* Polished Category & Main Nav Bar with Subcategory Mega Flyout */}
       <nav className="bg-white border-b border-slate-200/90 shadow-[0_2px_4px_rgba(0,0,0,0.02)] hidden lg:block">
         <div className="container-x flex items-center h-12 gap-2">
-          {/* "All Categories" Dropdown Trigger */}
-          <div className="relative group shrink-0">
+          {/* "All Categories" Mega Menu Trigger */}
+          <div
+            className="relative group shrink-0"
+            onMouseEnter={() => setCatMenuOpen(true)}
+            onMouseLeave={() => setCatMenuOpen(false)}
+          >
             <button
-              onClick={() => setCatOpen(!catOpen)}
+              onClick={() => setCatMenuOpen(!catMenuOpen)}
               className="flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs px-3.5 py-2 rounded-xl shadow-xs transition-all duration-150 active:scale-98"
             >
               <LayoutGrid size={15} strokeWidth={2.2} className="text-orange-400" />
@@ -195,43 +207,158 @@ export default function Header({
               />
             </button>
 
-            {/* Dropdown Menu */}
+            {/* Subcategory Flyout Mega Menu */}
             <div className="absolute left-0 top-full pt-2 hidden group-hover:block z-50 animate-in fade-in-50 duration-150">
-              <div className="bg-white rounded-2xl shadow-2xl border border-slate-100 p-2.5 min-w-[280px] max-h-[75vh] overflow-y-auto ring-1 ring-black/5">
-                <div className="px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 mb-1 flex items-center justify-between">
-                  <span>Browse Categories</span>
-                  <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-full font-medium">
-                    {categories.length} total
-                  </span>
-                </div>
+              <div className="bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden flex ring-1 ring-black/5 min-w-[740px] max-w-[860px] h-[480px]">
+                {/* Left Column: Categories List */}
+                <div className="w-[280px] border-r border-slate-100 flex flex-col justify-between bg-slate-50/50">
+                  <div className="px-3.5 py-2.5 border-b border-slate-100 bg-white flex items-center justify-between">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                      Categories
+                    </span>
+                    <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-full font-medium">
+                      {categories.length} total
+                    </span>
+                  </div>
 
-                <div className="space-y-0.5">
-                  {categories.map(c => (
+                  <div className="overflow-y-auto p-1.5 space-y-0.5 flex-1 no-scrollbar">
+                    {categories.map(c => {
+                      const isSelected = selectedCategory?.id === c.id;
+                      const hasSubs = c.subcategories && c.subcategories.length > 0;
+
+                      return (
+                        <div
+                          key={c.id}
+                          onMouseEnter={() => setSelectedCatId(c.id)}
+                          className="relative"
+                        >
+                          <Link
+                            href={`/category/${c.slug}`}
+                            className={`flex items-center justify-between px-3 py-2 rounded-xl text-[13px] font-medium transition-all ${
+                              isSelected
+                                ? "bg-white text-brand-600 shadow-xs font-semibold"
+                                : "text-slate-700 hover:bg-white/80 hover:text-brand-600"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 truncate">
+                              <span
+                                className={`w-1.5 h-1.5 rounded-full transition-all ${
+                                  isSelected ? "bg-brand-500 scale-125" : "bg-slate-300"
+                                }`}
+                              />
+                              <span className="truncate">{c.name}</span>
+                            </div>
+                            {hasSubs && (
+                              <ChevronRight
+                                size={14}
+                                className={`transition-all shrink-0 ${
+                                  isSelected
+                                    ? "text-brand-500 translate-x-0.5"
+                                    : "text-slate-300"
+                                }`}
+                              />
+                            )}
+                          </Link>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="p-2 border-t border-slate-100 bg-white">
                     <Link
-                      key={c.id}
-                      href={`/category/${c.slug}`}
-                      className="group/item flex items-center justify-between px-3 py-2 rounded-xl text-slate-700 hover:text-brand-600 hover:bg-brand-50/70 font-medium text-[13px] transition-all"
+                      href="/products"
+                      className="flex items-center justify-center gap-1.5 text-center w-full py-2 text-xs font-semibold text-brand-600 hover:text-brand-700 bg-brand-50/60 hover:bg-brand-50 rounded-xl transition"
                     >
-                      <div className="flex items-center gap-2.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-slate-300 group-hover/item:bg-brand-500 group-hover/item:scale-125 transition-all" />
-                        <span>{c.name}</span>
-                      </div>
-                      <ChevronRight
-                        size={14}
-                        className="text-slate-300 group-hover/item:text-brand-500 group-hover/item:translate-x-0.5 transition-all"
-                      />
+                      <span>View All Products</span>
+                      <ArrowRight size={13} />
                     </Link>
-                  ))}
+                  </div>
                 </div>
 
-                <div className="mt-2 pt-2 border-t border-slate-100">
-                  <Link
-                    href="/products"
-                    className="flex items-center justify-center gap-1 text-center w-full py-2 text-xs font-semibold text-brand-600 hover:text-brand-700 bg-brand-50/50 hover:bg-brand-50 rounded-xl transition"
-                  >
-                    <span>View All Products & Categories</span>
-                    <ChevronRight size={13} />
-                  </Link>
+                {/* Right Column: Subcategories Flyout Content */}
+                <div className="flex-1 flex flex-col justify-between p-5 bg-white overflow-hidden">
+                  {selectedCategory ? (
+                    <div className="flex flex-col h-full justify-between">
+                      <div>
+                        {/* Selected Category Header Banner */}
+                        <div className="flex items-center justify-between pb-3.5 mb-3.5 border-b border-slate-100">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-bold text-slate-900 text-base leading-tight">
+                                {selectedCategory.name}
+                              </h3>
+                              {selectedCategory.subcategories?.length > 0 && (
+                                <span className="text-[11px] bg-brand-50 text-brand-700 px-2 py-0.5 rounded-full font-bold">
+                                  {selectedCategory.subcategories.length} subcategories
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-slate-400 mt-0.5 line-clamp-1">
+                              {selectedCategory.description ||
+                                `Shop top-rated deals in ${selectedCategory.name}`}
+                            </p>
+                          </div>
+                          <Link
+                            href={`/category/${selectedCategory.slug}`}
+                            className="text-xs font-semibold text-brand-600 hover:text-brand-700 flex items-center gap-1 shrink-0 bg-brand-50/60 hover:bg-brand-50 px-2.5 py-1.5 rounded-lg transition"
+                          >
+                            <span>Browse All</span>
+                            <ChevronRight size={13} />
+                          </Link>
+                        </div>
+
+                        {/* Subcategories Grid */}
+                        {selectedCategory.subcategories &&
+                        selectedCategory.subcategories.length > 0 ? (
+                          <div className="overflow-y-auto max-h-[320px] pr-1.5 no-scrollbar">
+                            <div className="grid grid-cols-2 gap-1.5">
+                              {selectedCategory.subcategories.map((sub: any) => (
+                                <Link
+                                  key={sub.id}
+                                  href={`/category/${selectedCategory.slug}?subcategory=${sub.slug}`}
+                                  className="group/sub flex items-center justify-between px-3 py-2 rounded-xl text-slate-700 hover:text-brand-600 hover:bg-brand-50/70 border border-slate-100 hover:border-brand-100 font-medium text-[12.5px] transition-all"
+                                >
+                                  <span className="truncate">{sub.name}</span>
+                                  <ChevronRight
+                                    size={13}
+                                    className="text-slate-300 group-hover/sub:text-brand-500 group-hover/sub:translate-x-0.5 transition-all shrink-0 ml-1"
+                                  />
+                                </Link>
+                              ))}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="py-12 text-center text-slate-400">
+                            <FolderOpen size={28} className="mx-auto mb-2 opacity-50" />
+                            <p className="text-sm font-medium text-slate-600">
+                              Explore all products in {selectedCategory.name}
+                            </p>
+                            <Link
+                              href={`/category/${selectedCategory.slug}`}
+                              className="inline-flex items-center gap-1 mt-3 px-3.5 py-1.5 rounded-lg bg-brand-50 text-brand-600 font-semibold text-xs hover:bg-brand-100 transition"
+                            >
+                              <span>View Category Page</span>
+                              <ChevronRight size={13} />
+                            </Link>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Bottom Footer Quick Spotlight */}
+                      <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+                        <span className="flex items-center gap-1.5">
+                          <Tag size={13} className="text-brand-500" />
+                          <span>Verified European prices & daily deals</span>
+                        </span>
+                        <Link
+                          href={`/category/${selectedCategory.slug}`}
+                          className="font-semibold text-slate-700 hover:text-brand-600"
+                        >
+                          All {selectedCategory.name} &rarr;
+                        </Link>
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -239,7 +366,7 @@ export default function Header({
 
           <div className="h-5 w-px bg-slate-200 mx-1 shrink-0" />
 
-          {/* Main Navigation Items (No ugly scrollbars) */}
+          {/* Main Navigation Items (No scrollbars) */}
           <div className="flex items-center gap-1 overflow-x-auto no-scrollbar flex-1 py-1">
             {mainNav.length > 0 ? (
               mainNav.map(item => (
@@ -310,9 +437,9 @@ export default function Header({
         </div>
       </nav>
 
-      {/* Mobile Drawer */}
+      {/* Mobile Drawer with Accordion Subcategories */}
       {open && (
-        <div className="lg:hidden bg-white border-b border-slate-200 py-3 px-4 shadow-xl animate-in slide-in-from-top-2 duration-150">
+        <div className="lg:hidden bg-white border-b border-slate-200 py-3 px-4 shadow-xl animate-in slide-in-from-top-2 duration-150 max-h-[85vh] overflow-y-auto">
           <div className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 px-1">
             Menu Navigation
           </div>
@@ -402,21 +529,59 @@ export default function Header({
             </div>
           )}
 
+          {/* Categories with Subcategory Accordion on Mobile */}
           <div className="pt-3 mt-3 border-t border-slate-100">
             <div className="text-xs font-bold uppercase tracking-wider text-slate-400 px-1 mb-2">
-              Browse Categories
+              Browse Categories & Subcategories
             </div>
-            <div className="grid grid-cols-2 gap-1.5">
-              {categories.map(c => (
-                <Link
-                  key={c.id}
-                  href={`/category/${c.slug}`}
-                  className="block px-2.5 py-2 text-xs font-medium text-slate-700 hover:text-brand-600 bg-slate-50 hover:bg-brand-50 rounded-lg truncate transition"
-                  onClick={() => setOpen(false)}
-                >
-                  {c.name}
-                </Link>
-              ))}
+            <div className="space-y-1">
+              {categories.map(c => {
+                const isExpanded = mobileExpandedCat === c.id;
+                const hasSubs = c.subcategories && c.subcategories.length > 0;
+
+                return (
+                  <div key={c.id} className="rounded-xl border border-slate-100 overflow-hidden">
+                    <div className="flex items-center justify-between px-3 py-2 bg-slate-50/70">
+                      <Link
+                        href={`/category/${c.slug}`}
+                        className="text-xs font-semibold text-slate-800 hover:text-brand-600 flex-1 truncate"
+                        onClick={() => setOpen(false)}
+                      >
+                        {c.name}
+                      </Link>
+                      {hasSubs && (
+                        <button
+                          onClick={() => setMobileExpandedCat(isExpanded ? null : c.id)}
+                          className="p-1 text-slate-400 hover:text-slate-600"
+                          aria-label="Expand subcategories"
+                        >
+                          <ChevronDown
+                            size={15}
+                            className={`transition-transform duration-200 ${
+                              isExpanded ? "rotate-180 text-brand-600" : ""
+                            }`}
+                          />
+                        </button>
+                      )}
+                    </div>
+
+                    {hasSubs && isExpanded && (
+                      <div className="p-2 bg-white grid grid-cols-2 gap-1 border-t border-slate-100">
+                        {c.subcategories.map((sub: any) => (
+                          <Link
+                            key={sub.id}
+                            href={`/category/${c.slug}?subcategory=${sub.slug}`}
+                            className="px-2 py-1.5 text-[11px] font-medium text-slate-600 hover:text-brand-600 hover:bg-brand-50 rounded-lg truncate transition"
+                            onClick={() => setOpen(false)}
+                          >
+                            {sub.name}
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>

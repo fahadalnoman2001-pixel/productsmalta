@@ -6,7 +6,14 @@ export const dynamic = "force-dynamic";
 
 async function getGlobals() {
   const [cats, settings, menuItems] = await Promise.all([
-    prisma.category.findMany({ orderBy: { order: "asc" } }),
+    prisma.category.findMany({
+      include: {
+        subcategories: {
+          orderBy: { name: "asc" }
+        }
+      },
+      orderBy: { order: "asc" }
+    }),
     prisma.setting.findMany(),
     prisma.menuItem.findMany({
       where: { isActive: true },
