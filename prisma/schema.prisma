@@ -151,6 +151,25 @@ model Setting {
   value String @db.Text
 }
 
+model MenuItem {
+  id            String   @id @default(cuid())
+  label         String
+  url           String   @db.Text
+  location      String   @default("main") // "main", "topbar", "footer"
+  order         Int      @default(0)
+  target        String   @default("_self")
+  badge         String?
+  badgeColor    String?
+  isHighlighted Boolean  @default(false)
+  isActive      Boolean  @default(true)
+  parentId      String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([location])
+  @@index([order])
+}
+
 model MCPToken {
   id        String    @id @default(cuid())
   name      String

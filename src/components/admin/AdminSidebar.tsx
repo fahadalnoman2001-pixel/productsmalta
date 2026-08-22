@@ -9,6 +9,7 @@ import {
   Boxes,
   FileText,
   Image as ImgIcon,
+  Compass,
   Settings,
   Terminal
 } from "lucide-react";
@@ -28,6 +29,7 @@ export default function AdminSidebar({
     { href: "/admin/products", label: "Products", icon: Package },
     { href: "/admin/categories", label: "Categories", icon: Layers },
     { href: "/admin/collections", label: "Collections", icon: Boxes },
+    { href: "/admin/menus", label: "Menu Control", icon: Compass },
     { href: "/admin/blogs", label: "Blogs", icon: FileText },
     { href: "/admin/banners", label: "Banners & Posters", icon: ImgIcon },
     { href: "/admin/settings", label: "Settings", icon: Settings },

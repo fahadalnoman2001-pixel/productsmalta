@@ -3,8 +3,38 @@ import Link from "next/link";
 import { useState } from "react";
 import { Menu, Search, X, ChevronDown, Truck, Tag, Heart } from "lucide-react";
 
-export default function Header({ categories, siteName }: { categories: any[]; siteName: string }) {
+export default function Header({
+  categories,
+  siteName,
+  menuItems = []
+}: {
+  categories: any[];
+  siteName: string;
+  menuItems?: any[];
+}) {
   const [open, setOpen] = useState(false);
+
+  const topNav = menuItems.filter(m => m.location === "topbar" && m.isActive);
+  const mainNav = menuItems.filter(m => m.location === "main" && m.isActive);
+
+  function getBadgeClass(color?: string | null) {
+    switch (color) {
+      case "red":
+        return "bg-red-500 text-white";
+      case "emerald":
+        return "bg-emerald-500 text-white";
+      case "amber":
+        return "bg-amber-500 text-white";
+      case "purple":
+        return "bg-purple-500 text-white";
+      case "slate":
+        return "bg-slate-700 text-white";
+      case "orange":
+      default:
+        return "bg-brand-500 text-white";
+    }
+  }
+
   return (
     <header className="sticky top-0 z-40">
       {/* Top utility strip */}
@@ -15,9 +45,29 @@ export default function Header({ categories, siteName }: { categories: any[]; si
             <span className="flex items-center gap-1"><Tag size={13} /> Updated affiliate prices daily</span>
           </div>
           <div className="flex items-center gap-4 ml-auto">
-            <Link href="/blog" className="hover:text-white">Blog</Link>
-            <Link href="/about" className="hover:text-white">About</Link>
-            <Link href="/contact" className="hover:text-white">Contact</Link>
+            {topNav.length > 0 ? (
+              topNav.map(item => (
+                <Link
+                  key={item.id}
+                  href={item.url}
+                  target={item.target || "_self"}
+                  className="hover:text-white flex items-center gap-1"
+                >
+                  <span>{item.label}</span>
+                  {item.badge && (
+                    <span className={`text-[9px] uppercase font-bold px-1 py-0.2 rounded ${getBadgeClass(item.badgeColor)}`}>
+                      {item.badge}
+                    </span>
+                  )}
+                </Link>
+              ))
+            ) : (
+              <>
+                <Link href="/blog" className="hover:text-white">Blog</Link>
+                <Link href="/about" className="hover:text-white">About</Link>
+                <Link href="/contact" className="hover:text-white">Contact</Link>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -71,27 +121,97 @@ export default function Header({ categories, siteName }: { categories: any[]; si
               ))}
             </div>
           </div>
-          <Link href="/" className="px-3 h-11 flex items-center text-ink-700 hover:text-brand-600 font-medium">Home</Link>
-          <Link href="/products" className="px-3 h-11 flex items-center text-ink-700 hover:text-brand-600 font-medium">All Products</Link>
-          {categories.slice(0, 6).map(c => (
-            <Link key={c.id} href={`/products?category=${c.slug}`} className="px-3 h-11 flex items-center text-ink-700 hover:text-brand-600 font-medium">
-              {c.name}
-            </Link>
-          ))}
-          <Link href="/products?collection=weekend-sales" className="px-3 h-11 flex items-center text-sale-500 hover:text-sale-600 font-semibold ml-auto">
-            🔥 Weekend Sales
-          </Link>
+
+          {mainNav.length > 0 ? (
+            mainNav.map(item => (
+              <Link
+                key={item.id}
+                href={item.url}
+                target={item.target || "_self"}
+                className={`px-3 h-11 flex items-center gap-1.5 font-medium transition ${
+                  item.isHighlighted
+                    ? "text-sale-500 hover:text-sale-600 font-bold"
+                    : "text-ink-700 hover:text-brand-600"
+                }`}
+              >
+                <span>{item.label}</span>
+                {item.badge && (
+                  <span
+                    className={`text-[9px] uppercase font-extrabold px-1.5 py-0.5 rounded shadow-xs ${getBadgeClass(
+                      item.badgeColor
+                    )}`}
+                  >
+                    {item.badge}
+                  </span>
+                )}
+              </Link>
+            ))
+          ) : (
+            <>
+              <Link href="/" className="px-3 h-11 flex items-center text-ink-700 hover:text-brand-600 font-medium">Home</Link>
+              <Link href="/products" className="px-3 h-11 flex items-center text-ink-700 hover:text-brand-600 font-medium">All Products</Link>
+              {categories.slice(0, 6).map(c => (
+                <Link key={c.id} href={`/products?category=${c.slug}`} className="px-3 h-11 flex items-center text-ink-700 hover:text-brand-600 font-medium">
+                  {c.name}
+                </Link>
+              ))}
+              <Link href="/products?collection=weekend-sales" className="px-3 h-11 flex items-center text-sale-500 hover:text-sale-600 font-semibold ml-auto">
+                🔥 Weekend Sales
+              </Link>
+            </>
+          )}
         </div>
       </nav>
 
       {/* Mobile menu */}
       {open && (
         <div className="lg:hidden bg-white border-b border-ink-100 py-3 px-4 space-y-1">
-          <Link href="/" className="block py-2" onClick={() => setOpen(false)}>Home</Link>
-          <Link href="/products" className="block py-2" onClick={() => setOpen(false)}>All Products</Link>
-          <Link href="/blog" className="block py-2" onClick={() => setOpen(false)}>Blog</Link>
-          <Link href="/about" className="block py-2" onClick={() => setOpen(false)}>About</Link>
-          <Link href="/contact" className="block py-2" onClick={() => setOpen(false)}>Contact</Link>
+          {mainNav.length > 0 ? (
+            mainNav.map(item => (
+              <Link
+                key={item.id}
+                href={item.url}
+                target={item.target || "_self"}
+                className={`block py-2 flex items-center justify-between ${
+                  item.isHighlighted ? "text-sale-500 font-bold" : "text-ink-800"
+                }`}
+                onClick={() => setOpen(false)}
+              >
+                <span>{item.label}</span>
+                {item.badge && (
+                  <span className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded ${getBadgeClass(item.badgeColor)}`}>
+                    {item.badge}
+                  </span>
+                )}
+              </Link>
+            ))
+          ) : (
+            <>
+              <Link href="/" className="block py-2" onClick={() => setOpen(false)}>Home</Link>
+              <Link href="/products" className="block py-2" onClick={() => setOpen(false)}>All Products</Link>
+              <Link href="/blog" className="block py-2" onClick={() => setOpen(false)}>Blog</Link>
+              <Link href="/about" className="block py-2" onClick={() => setOpen(false)}>About</Link>
+              <Link href="/contact" className="block py-2" onClick={() => setOpen(false)}>Contact</Link>
+            </>
+          )}
+
+          {topNav.length > 0 && (
+            <div className="pt-2 mt-2 border-t border-ink-100 space-y-1">
+              <div className="text-xs font-semibold text-ink-500 uppercase mb-1">Quick Links</div>
+              {topNav.map(item => (
+                <Link
+                  key={item.id}
+                  href={item.url}
+                  target={item.target || "_self"}
+                  className="block py-1.5 text-sm text-ink-600 hover:text-brand-600"
+                  onClick={() => setOpen(false)}
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </div>
+          )}
+
           <div className="pt-2 mt-2 border-t border-ink-100">
             <div className="text-xs font-semibold text-ink-500 uppercase mb-1">Categories</div>
             {categories.map(c => (
