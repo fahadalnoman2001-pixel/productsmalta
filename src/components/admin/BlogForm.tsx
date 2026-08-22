@@ -77,7 +77,7 @@ export default function BlogForm({ blog, cats }: { blog?: any; cats: any[] }) {
           <div className="font-semibold text-ink-800">SEO</div>
           <div><div className="label">SEO Title</div><input className="input" value={f.seoTitle} onChange={e => set("seoTitle", e.target.value)} placeholder={f.title} /></div>
           <div><div className="label">SEO Description</div><textarea rows={2} className="input" value={f.seoDescription} onChange={e => set("seoDescription", e.target.value)} placeholder={f.excerpt} /></div>
-          <div><div className="label">Tags (comma-separated)</div><input className="input" value={f.tags} onChange={e => set("tags", e.target.value)} placeholder="guide, deals, malta" /></div>
+          <div><div className="label">Tags (comma-separated)</div><input className="input" value={f.tags} onChange={e => set("tags", e.target.value)} placeholder="guide, deals, europe" /></div>
         </div>
       </div>
 

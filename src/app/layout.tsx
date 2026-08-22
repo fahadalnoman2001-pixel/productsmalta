@@ -2,10 +2,29 @@ import "./globals.css";
 import type { Metadata } from "next";
 import { prisma } from "@/lib/db";
 
+const siteBase = process.env.SITE_URL || "https://youroffers.eu";
+
 export const metadata: Metadata = {
-  title: { default: "YourOffer.eu — Curated Affiliate Deals & Buying Guides", template: "%s | YourOffer.eu" },
-  description: "Discover the best curated affiliate deals, discounts, and buying guides across electronics, fashion, home, beauty and more on YourOffer.eu.",
-  metadataBase: new URL(process.env.SITE_URL || "https://youroffers.eu"),
+  title: {
+    default: "YourOffers.eu — Curated Deals & Buying Guides Across Europe",
+    template: "%s | YourOffers.eu"
+  },
+  description:
+    "Discover the best curated affiliate deals across Europe. Compare prices on electronics, fashion, home & beauty — handpicked and updated daily on YourOffers.eu.",
+  metadataBase: new URL(siteBase),
+  alternates: {
+    canonical: "/"
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1
+    }
+  },
   icons: {
     icon: [
       { url: "/favicon.ico", sizes: "any" },
@@ -15,7 +34,11 @@ export const metadata: Metadata = {
     apple: "/apple-touch-icon.png",
     shortcut: "/favicon.ico"
   },
-  openGraph: { type: "website", siteName: "YourOffer.eu" }
+  openGraph: {
+    type: "website",
+    siteName: "YourOffers.eu",
+    locale: "en_EU"
+  }
 };
 
 async function getTrackingSettings() {
@@ -33,13 +56,47 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const s = await getTrackingSettings();
   const gaId = s.ga4_id || "G-LP8WYSQ3VG";
 
+  const organizationSchema = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: "YourOffers.eu",
+    url: siteBase,
+    logo: `${siteBase}/logo.png`,
+    description: "Curated affiliate deals and buying guides across Europe."
+  };
+
+  const websiteSchema = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: "YourOffers.eu",
+    url: siteBase,
+    potentialAction: {
+      "@type": "SearchAction",
+      target: `${siteBase}/products?q={search_term_string}`,
+      "query-input": "required name=search_term_string"
+    }
+  };
+
   return (
     <html lang="en">
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet" />
-        
+        <link
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700;800&display=swap"
+          rel="stylesheet"
+        />
+
+        {/* Structured Data: Organization & WebSite */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}
+        />
+
         {/* Google tag (gtag.js) */}
         <script async src={`https://www.googletagmanager.com/gtag/js?id=${gaId}`}></script>
         <script
@@ -54,8 +111,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         />
 
         {s.meta_pixel_id && (
-          <script dangerouslySetInnerHTML={{ __html:
-            `!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js'); fbq('init','${s.meta_pixel_id}'); fbq('track','PageView');` }} />
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js'); fbq('init','${s.meta_pixel_id}'); fbq('track','PageView');`
+            }}
+          />
         )}
         {s.gsc_verification && <meta name="google-site-verification" content={s.gsc_verification} />}
       </head>

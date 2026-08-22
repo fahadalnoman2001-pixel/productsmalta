@@ -2,7 +2,13 @@ import { prisma } from "@/lib/db";
 import ContactForm from "@/components/ContactForm";
 import { Mail, Phone } from "lucide-react";
 
-export const metadata = { title: "Contact Us" };
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Contact Us — YourOffers.eu",
+  description: "Get in touch with the YourOffers.eu editorial and partnerships team.",
+  alternates: { canonical: "/contact" }
+};
 
 export default async function ContactPage() {
   const s = Object.fromEntries((await prisma.setting.findMany()).map(x => [x.key, x.value]));

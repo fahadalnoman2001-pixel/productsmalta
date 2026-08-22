@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
         result: {
           protocolVersion: "2025-03-26",
           capabilities: { tools: {} },
-          serverInfo: { name: "productsinmalta", version: "1.0.0" }
+          serverInfo: { name: "youroffers-mcp", version: "1.0.0" }
         }
       };
     } else if (method === "notifications/initialized") {

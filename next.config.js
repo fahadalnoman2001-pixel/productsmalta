@@ -15,6 +15,22 @@ const nextConfig = {
   webpack: (config) => {
     config.parallelism = 1;
     return config;
+  },
+  async redirects() {
+    return [
+      {
+        source: "/products",
+        has: [{ type: "query", key: "category", value: "(?<slug>[^&]+)" }],
+        destination: "/category/:slug",
+        permanent: true
+      },
+      {
+        source: "/products",
+        has: [{ type: "query", key: "collection", value: "(?<slug>[^&]+)" }],
+        destination: "/collection/:slug",
+        permanent: true
+      }
+    ];
   }
 };
 module.exports = nextConfig;

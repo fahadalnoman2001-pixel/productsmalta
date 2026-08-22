@@ -69,7 +69,7 @@ export default async function HomePage() {
             title={col.type === "seasonal" ? `🔥 ${col.name}` : col.name}
             subtitle={col.description || undefined}
             products={products}
-            viewAll={`/products?collection=${col.slug}`}
+            viewAll={`/collection/${col.slug}`}
             accent={col.type === "seasonal"}
           />
         )
@@ -84,7 +84,7 @@ export default async function HomePage() {
             title={col.type === "seasonal" ? `🔥 ${col.name}` : col.name}
             subtitle={col.description || undefined}
             products={products}
-            viewAll={`/products?collection=${col.slug}`}
+            viewAll={`/collection/${col.slug}`}
             accent={col.type === "seasonal"}
           />
         )
@@ -94,7 +94,7 @@ export default async function HomePage() {
 
       {d.categoryRows.map(c => (
         c.products.length > 0 && (
-          <ProductRow key={c.id} title={c.name} subtitle={`Latest in ${c.name}`} products={c.products} viewAll={`/products?category=${c.slug}`} />
+          <ProductRow key={c.id} title={c.name} subtitle={`Latest in ${c.name}`} products={c.products} viewAll={`/category/${c.slug}`} />
         )
       ))}
 

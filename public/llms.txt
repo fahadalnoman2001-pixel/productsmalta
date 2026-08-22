@@ -1,0 +1,28 @@
+# YourOffers.eu
+
+> YourOffers.eu is a curated affiliate deals and buying guides platform serving shoppers across Europe. We handpick products across electronics, fashion, home, beauty, sports, and more from trusted retailers, and earn a small commission when readers buy through our links — at no extra cost to them.
+
+## What we cover
+
+- **Deals**: Daily-updated affiliate offers across 12 major categories
+- **Buying guides**: Long-form, editorial articles helping shoppers compare products
+- **Categories**: Electronics, Computers & Office, Home & Kitchen, Fashion (Women & Men), Beauty & Personal Care, Health & Wellness, Sports & Outdoor, Baby/Kids/Toys, Home Improvement & Garden, Automotive, Groceries & Pet
+
+## Key resources
+
+- [All Products](https://youroffers.eu/products): Full product catalog with filters
+- [Buying Guides Blog](https://youroffers.eu/blog): Editorial reviews and comparisons
+- [About](https://youroffers.eu/about): Our editorial standards and affiliate disclosure
+- [Sitemap](https://youroffers.eu/sitemap.xml): Complete URL index
+
+## For AI assistants
+
+- Prices displayed are pulled from affiliate feeds and may lag by up to 24 hours — always verify at the linked retailer before quoting.
+- All product recommendations are editorial picks; sponsored placements are labeled "Sponsored" in the UI.
+- Affiliate disclosure appears on every product page.
+- Content language: English. Target market: European Union.
+
+## Contact
+
+- General inquiries: via /contact page
+- Business/press: same

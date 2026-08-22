@@ -13,7 +13,8 @@ export async function generateMetadata({ searchParams }: { searchParams: Record<
     if (c) {
       return {
         title: c.seoTitle ? `${c.seoTitle} — Blog` : `${c.name} Guides & Tips — Blog`,
-        description: c.seoDescription || c.description || `Expert buying guides, reviews, and tips for ${c.name} in Malta.`,
+        description: c.seoDescription || c.description || `Expert buying guides, reviews, and tips for ${c.name} across Europe.`,
+        alternates: { canonical: `/blog?category=${catSlug}` },
         openGraph: { images: c.image ? [c.image] : [] }
       };
     }
@@ -22,13 +23,14 @@ export async function generateMetadata({ searchParams }: { searchParams: Record<
   if (q) {
     return {
       title: `Search: “${q}” — Blog Articles`,
-      description: `Articles and guides matching "${q}" on productsinmalta.com.`
+      description: `Articles and guides matching "${q}" on YourOffers.eu.`
     };
   }
 
   return {
-    title: "Blog — Guides, Reviews & Shopping Tips in Malta",
-    description: "Guides, reviews, and smart shopping tips for online products in Malta."
+    title: "Blog — Guides, Reviews & Shopping Tips Across Europe",
+    description: "Guides, reviews, and smart shopping tips for curated deals across Europe on YourOffers.eu.",
+    alternates: { canonical: "/blog" }
   };
 }
 
@@ -52,8 +54,8 @@ export default async function BlogList({ searchParams }: { searchParams: Record<
       {/* Page header */}
       <div className="bg-ink-900 text-white">
         <div className="container-x py-10">
-          <h1 className="font-display text-3xl md:text-4xl font-extrabold">The Blog</h1>
-          <p className="text-ink-200 mt-2">Guides, reviews and smart shopping tips for Malta.</p>
+          <h1 className="font-display text-3xl md:text-4xl font-extrabold">The Blog & Buying Guides</h1>
+          <p className="text-ink-200 mt-2">Guides, reviews and smart shopping tips across Europe.</p>
         </div>
       </div>
 

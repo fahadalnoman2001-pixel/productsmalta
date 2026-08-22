@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   return NextResponse.json({
     ok: true,
-    service: "productsinmalta-mcp",
+    service: "youroffers-mcp",
     tools: tools.length
   });
 }

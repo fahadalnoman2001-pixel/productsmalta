@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import { redirect } from "next/navigation";
 
-export const metadata = { title: "Admin Portal | Products in Malta" };
+export const metadata = { title: "Admin Portal | YourOffers.eu" };
 
 export default async function AdminDashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions);
@@ -20,7 +20,7 @@ export default async function AdminDashboardLayout({ children }: { children: Rea
       <div className="flex-1 min-w-0 flex flex-col">
         <header className="bg-white border-b border-slate-200 px-6 py-3.5 flex items-center justify-between sticky top-0 z-10 shadow-xs">
           <div className="flex items-center gap-2">
-            <span className="font-semibold text-slate-800 text-sm">Products in Malta Dashboard</span>
+            <span className="font-semibold text-slate-800 text-sm">YourOffers.eu Dashboard</span>
           </div>
           <Link
             href="/"

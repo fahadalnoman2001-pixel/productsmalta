@@ -11,9 +11,12 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   if (!b) return {};
   const tags = parseJSON<string[]>(b.tags, []);
   return {
-    title: b.seoTitle || `${b.title} | Products in Malta`,
+    title: b.seoTitle || b.title,
     description: b.seoDescription || b.excerpt || b.title,
     keywords: tags.length > 0 ? tags.join(", ") : undefined,
+    alternates: {
+      canonical: `/blog/${params.slug}`
+    },
     openGraph: {
       title: b.seoTitle || b.title,
       description: b.seoDescription || b.excerpt || b.title,
@@ -64,6 +67,8 @@ export default async function BlogDetail({ params }: { params: { slug: string } 
     take: 3, orderBy: { createdAt: "desc" }, include: { category: true }
   });
 
+  const base = process.env.SITE_URL || "https://youroffers.eu";
+
   const schema = {
     "@context": "https://schema.org",
     "@type": "Article",
@@ -71,22 +76,39 @@ export default async function BlogDetail({ params }: { params: { slug: string } 
     image: b.coverImage ? [b.coverImage] : [],
     datePublished: b.createdAt,
     dateModified: b.updatedAt,
-    author: { "@type": "Person", name: b.author },
+    author: { "@type": "Person", name: b.author || "YourOffers.eu Editorial Team" },
+    publisher: {
+      "@type": "Organization",
+      name: "YourOffers.eu",
+      logo: { "@type": "ImageObject", url: `${base}/logo.png` }
+    },
     description: b.seoDescription || b.excerpt || b.title,
     keywords: tags.length > 0 ? tags.join(", ") : undefined,
-    mainEntityOfPage: { "@type": "WebPage" }
+    mainEntityOfPage: { "@type": "WebPage", "@id": `${base}/blog/${b.slug}` }
+  };
+
+  const breadcrumbSchema = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Home", item: `${base}/` },
+      { "@type": "ListItem", position: 2, name: "Blog & Guides", item: `${base}/blog` },
+      { "@type": "ListItem", position: 3, name: b.title, item: `${base}/blog/${b.slug}` }
+    ]
   };
 
   return (
     <div className="bg-white">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }} />
 
-      {/* Header */}
       <div className="container-x pt-6">
-        <nav className="text-sm text-ink-400 mb-4">
-          <Link href="/" className="hover:text-brand-600">Home</Link> /{" "}
-          <Link href="/blog" className="hover:text-brand-600">Blog</Link>
-          {b.category && <> / <Link href={`/blog?category=${b.category.slug}`} className="hover:text-brand-600">{b.category.name}</Link></>}
+        <nav className="text-sm text-ink-500 mb-6 flex flex-wrap items-center gap-1.5">
+          <Link href="/" className="hover:text-brand-600 transition">Home</Link>
+          <span>/</span>
+          <Link href="/blog" className="hover:text-brand-600 transition">Blog</Link>
+          <span>/</span>
+          <span className="text-ink-800 font-medium line-clamp-1">{b.title}</span>
         </nav>
       </div>
 

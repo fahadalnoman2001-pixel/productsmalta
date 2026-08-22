@@ -333,7 +333,7 @@ export default function CategoryManager({ cats, subs }: { cats: any[]; subs: any
                   <div className="label">SEO Title</div>
                   <input
                     className="input"
-                    placeholder="e.g. Best Electronics Deals in Malta | Buy Online"
+                    placeholder="e.g. Best Electronics Deals in Europe | Buy Online"
                     value={editingCat.seoTitle}
                     onChange={e => setEditingCat({ ...editingCat, seoTitle: e.target.value })}
                   />
@@ -343,7 +343,7 @@ export default function CategoryManager({ cats, subs }: { cats: any[]; subs: any
                   <textarea
                     rows={2}
                     className="input"
-                    placeholder="e.g. Discover top rated electronics, smart gadgets, laptops & accessories in Malta with the best online deals."
+                    placeholder="e.g. Discover top rated electronics, smart gadgets, laptops & accessories in Europe with the best online deals."
                     value={editingCat.seoDescription}
                     onChange={e => setEditingCat({ ...editingCat, seoDescription: e.target.value })}
                   />
@@ -352,7 +352,7 @@ export default function CategoryManager({ cats, subs }: { cats: any[]; subs: any
                   <div className="label">Category SEO Tags / Keywords (comma-separated)</div>
                   <input
                     className="input"
-                    placeholder="e.g. electronics, laptops, smartphones, malta, tech deals"
+                    placeholder="e.g. electronics, laptops, smartphones, europe, tech deals"
                     value={editingCat.tags}
                     onChange={e => setEditingCat({ ...editingCat, tags: e.target.value })}
                   />

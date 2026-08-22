@@ -13,13 +13,16 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   if (!p) return {};
   const imgs = parseJSON<string[]>(p.images, []);
   const tags = parseJSON<string[]>(p.tags, []);
-  const metaTitle = p.seoTitle || `${p.title} | ${p.brand || "Products in Malta"}`;
+  const metaTitle = p.seoTitle || `${p.title}${p.brand ? ` — ${p.brand}` : ""} Deal`;
   const metaDesc = p.seoDescription || p.shortDesc || p.description.slice(0, 160);
 
   return {
     title: metaTitle,
     description: metaDesc,
     keywords: tags.length > 0 ? tags.join(", ") : undefined,
+    alternates: {
+      canonical: `/products/${params.slug}`
+    },
     openGraph: {
       title: metaTitle,
       description: metaDesc,
@@ -48,18 +51,26 @@ export default async function ProductDetail({ params }: { params: { slug: string
     take: 5
   });
 
-  const schema = {
+  const base = process.env.SITE_URL || "https://youroffers.eu";
+
+  const productSchema = {
     "@context": "https://schema.org",
     "@type": "Product",
     name: p.title,
     image: imgs,
     description: p.description,
-    brand: { "@type": "Brand", name: p.brand },
+    sku: p.id,
+    mpn: p.id,
+    category: p.category?.name,
+    brand: { "@type": "Brand", name: p.brand || "YourOffers.eu" },
     offers: {
       "@type": "Offer",
       price: p.price,
       priceCurrency: p.currency,
       availability: "https://schema.org/InStock",
+      priceValidUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+      itemCondition: "https://schema.org/NewCondition",
+      seller: { "@type": "Organization", name: p.platform || "Retailer" },
       url: p.affiliateUrl
     },
     ...(p.rating > 0
@@ -73,12 +84,26 @@ export default async function ProductDetail({ params }: { params: { slug: string
       : {})
   };
 
+  const breadcrumbSchema = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Home", item: `${base}/` },
+      { "@type": "ListItem", position: 2, name: "Products", item: `${base}/products` },
+      ...(p.category
+        ? [{ "@type": "ListItem", position: 3, name: p.category.name, item: `${base}/category/${p.category.slug}` }]
+        : []),
+      { "@type": "ListItem", position: p.category ? 4 : 3, name: p.title, item: `${base}/products/${p.slug}` }
+    ]
+  };
+
   const hasDiscount = p.originalPrice && p.originalPrice > p.price;
   const discountPercent = hasDiscount && p.originalPrice ? Math.round(((p.originalPrice - p.price) / p.originalPrice) * 100) : 0;
 
   return (
     <div className="container-x py-8">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }} />
       
       {/* Breadcrumbs */}
       <nav className="text-sm text-ink-500 mb-6 flex flex-wrap items-center gap-1.5">
@@ -88,7 +113,7 @@ export default async function ProductDetail({ params }: { params: { slug: string
         {p.category && (
           <>
             <span>/</span>
-            <Link href={`/products?category=${p.category.slug}`} className="hover:text-brand-600 transition">
+            <Link href={`/category/${p.category.slug}`} className="hover:text-brand-600 transition">
               {p.category.name}
             </Link>
           </>

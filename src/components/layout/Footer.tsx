@@ -7,9 +7,9 @@ export default function Footer({ categories, settings }: { categories: any[]; se
       <div className="container-x py-12 grid grid-cols-1 md:grid-cols-4 gap-8">
         <div>
           <Link href="/" className="inline-block mb-3 bg-white/95 px-3 py-1.5 rounded-lg shadow-sm">
-            <img src="/logo.png" alt={settings.site_name || "YourOffer.eu"} className="h-8 w-auto object-contain" />
+            <img src="/logo.png" alt={settings.site_name || "YourOffers.eu"} className="h-8 w-auto object-contain" />
           </Link>
-          <p className="text-sm text-slate-400">{settings.site_tagline || "Curated affiliate deals & buying guides."}</p>
+          <p className="text-sm text-slate-400">{settings.site_tagline || "Curated Deals & Buying Guides Across Europe."}</p>
           <div className="flex gap-3 mt-4">
             {settings.facebook_url && <a href={settings.facebook_url} aria-label="Facebook"><Facebook size={18} /></a>}
             {settings.instagram_url && <a href={settings.instagram_url} aria-label="Instagram"><Instagram size={18} /></a>}
@@ -21,7 +21,7 @@ export default function Footer({ categories, settings }: { categories: any[]; se
           <div className="text-white font-semibold mb-3">Categories</div>
           <ul className="space-y-2 text-sm">
             {categories.slice(0, 6).map(c => (
-              <li key={c.id}><Link href={`/products?category=${c.slug}`} className="hover:text-white">{c.name}</Link></li>
+              <li key={c.id}><Link href={`/category/${c.slug}`} className="hover:text-white">{c.name}</Link></li>
             ))}
           </ul>
         </div>
@@ -45,7 +45,7 @@ export default function Footer({ categories, settings }: { categories: any[]; se
         </div>
       </div>
       <div className="border-t border-slate-800 py-4 text-center text-xs text-slate-500">
-        © {new Date().getFullYear()} {settings.site_name || "Products in Malta"}. All rights reserved.
+        © {new Date().getFullYear()} {settings.site_name || "YourOffers.eu"}. All rights reserved.
         &nbsp;·&nbsp;Some links are affiliate links; we may earn a commission at no extra cost to you.
       </div>
     </footer>

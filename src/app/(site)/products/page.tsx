@@ -18,18 +18,19 @@ export async function generateMetadata({ searchParams }: { searchParams: Record<
     if (c) {
       const tags = parseJSON<string[]>(c.tags, []);
       return {
-        title: c.seoTitle || `${c.name} — Best Products & Deals in Malta`,
-        description: c.seoDescription || c.description || `Browse the best ${c.name} deals, top picks, and verified offers in Malta.`,
+        title: c.seoTitle || `${c.name} Deals in Europe — Best Prices`,
+        description: c.seoDescription || c.description || `Browse the best ${c.name} deals, top picks, and verified offers across Europe on YourOffers.eu.`,
         keywords: tags.length > 0 ? tags.join(", ") : undefined,
+        alternates: { canonical: `/category/${c.slug}` },
         openGraph: {
-          title: c.seoTitle || `${c.name} — Best Deals in Malta`,
-          description: c.seoDescription || c.description || `Explore ${c.name} products and deals in Malta.`,
+          title: c.seoTitle || `${c.name} Deals in Europe`,
+          description: c.seoDescription || c.description || `Explore ${c.name} products and deals in Europe.`,
           images: c.image ? [c.image] : []
         },
         twitter: {
           card: "summary_large_image",
-          title: c.seoTitle || `${c.name} — Best Deals in Malta`,
-          description: c.seoDescription || c.description || `Explore ${c.name} products and deals in Malta.`,
+          title: c.seoTitle || `${c.name} Deals in Europe`,
+          description: c.seoDescription || c.description || `Explore ${c.name} products and deals in Europe.`,
           images: c.image ? [c.image] : []
         }
       };
@@ -40,8 +41,9 @@ export async function generateMetadata({ searchParams }: { searchParams: Record<
     const col = await prisma.collection.findUnique({ where: { slug: collectionSlug } });
     if (col) {
       return {
-        title: `${col.name} — Curated Deals in Malta`,
-        description: col.description || `Browse our curated ${col.name} collection of top products in Malta.`,
+        title: `${col.name} — Curated Deals in Europe`,
+        description: col.description || `Browse our curated ${col.name} collection of top products across Europe.`,
+        alternates: { canonical: `/collection/${col.slug}` },
         openGraph: { images: col.image ? [col.image] : [] }
       };
     }
@@ -49,14 +51,15 @@ export async function generateMetadata({ searchParams }: { searchParams: Record<
 
   if (q) {
     return {
-      title: `Search: “${q}” — Best Deals in Malta`,
-      description: `Search results for ${q} on productsinmalta.com. Discover top deals and products.`
+      title: `Search: “${q}” — Best Deals in Europe`,
+      description: `Search results for ${q} on YourOffers.eu. Discover top deals and products across Europe.`
     };
   }
 
   return {
-    title: "All Products — Best Affiliate Deals in Malta",
-    description: "Browse all products, trending offers, and verified deals in Malta across top shopping categories."
+    title: "All Products — Curated Affiliate Deals Across Europe",
+    description: "Browse all products, trending offers, and verified deals across Europe on YourOffers.eu.",
+    alternates: { canonical: "/products" }
   };
 }
 

@@ -23,7 +23,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
     <>
       <Header
         categories={cats}
-        siteName={s.site_name || "Products in Malta"}
+        siteName={s.site_name || "YourOffers.eu"}
         menuItems={menuItems}
       />
       <main className="min-h-[60vh]">{children}</main>

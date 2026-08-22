@@ -41,7 +41,7 @@ export default function Header({
       <div className="bg-ink-900 text-ink-100 text-xs">
         <div className="container-x flex items-center justify-between h-9">
           <div className="hidden sm:flex items-center gap-4">
-            <span className="flex items-center gap-1"><Truck size={13} /> Curated deals delivered across Malta</span>
+            <span className="flex items-center gap-1"><Truck size={13} /> Curated deals delivered across Europe</span>
             <span className="flex items-center gap-1"><Tag size={13} /> Updated affiliate prices daily</span>
           </div>
           <div className="flex items-center gap-4 ml-auto">
@@ -81,7 +81,7 @@ export default function Header({
           <Link href="/" className="flex items-center shrink-0">
             <img
               src="/logo.png"
-              alt={siteName || "YourOffer.eu"}
+              alt={siteName || "YourOffers.eu"}
               className="h-10 sm:h-12 w-auto max-w-[200px] sm:max-w-[240px] object-contain"
             />
           </Link>
@@ -115,7 +115,7 @@ export default function Header({
             </button>
             <div className="absolute left-0 top-full hidden group-hover:block bg-white shadow-hover rounded-b-lg border border-ink-100 min-w-[240px] py-2 z-50">
               {categories.map(c => (
-                <Link key={c.id} href={`/products?category=${c.slug}`} className="block px-4 py-2 text-ink-700 hover:bg-brand-50 hover:text-brand-700">
+                <Link key={c.id} href={`/category/${c.slug}`} className="block px-4 py-2 text-ink-700 hover:bg-brand-50 hover:text-brand-700">
                   {c.name}
                 </Link>
               ))}
@@ -151,7 +151,7 @@ export default function Header({
               <Link href="/" className="px-3 h-11 flex items-center text-ink-700 hover:text-brand-600 font-medium">Home</Link>
               <Link href="/products" className="px-3 h-11 flex items-center text-ink-700 hover:text-brand-600 font-medium">All Products</Link>
               {categories.slice(0, 6).map(c => (
-                <Link key={c.id} href={`/products?category=${c.slug}`} className="px-3 h-11 flex items-center text-ink-700 hover:text-brand-600 font-medium">
+                <Link key={c.id} href={`/category/${c.slug}`} className="px-3 h-11 flex items-center text-ink-700 hover:text-brand-600 font-medium">
                   {c.name}
                 </Link>
               ))}
@@ -215,7 +215,7 @@ export default function Header({
           <div className="pt-2 mt-2 border-t border-ink-100">
             <div className="text-xs font-semibold text-ink-500 uppercase mb-1">Categories</div>
             {categories.map(c => (
-              <Link key={c.id} href={`/products?category=${c.slug}`} className="block py-2 text-sm" onClick={() => setOpen(false)}>{c.name}</Link>
+              <Link key={c.id} href={`/category/${c.slug}`} className="block py-2 text-sm" onClick={() => setOpen(false)}>{c.name}</Link>
             ))}
           </div>
         </div>

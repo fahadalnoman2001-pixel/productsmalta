@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 // MCP Protocol Version this server supports
 const PROTOCOL_VERSION = "2025-03-26";
-const SERVER_INFO = { name: "productsinmalta", version: "1.0.0" };
+const SERVER_INFO = { name: "youroffers-mcp", version: "1.0.0" };
 const ISSUER = process.env.NEXTAUTH_URL || "https://youroffers.eu";
 
 // --- Auth helper ---
