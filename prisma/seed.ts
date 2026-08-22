@@ -172,7 +172,7 @@ async function main() {
     { key: "site_name", value: "Products in Malta" },
     { key: "site_tagline", value: "Curated affiliate deals & buying guides" },
     { key: "gsc_verification", value: "" },
-    { key: "ga4_id", value: "" },
+    { key: "ga4_id", value: "G-LP8WYSQ3VG" },
     { key: "meta_pixel_id", value: "" },
     { key: "facebook_url", value: "https://facebook.com/" },
     { key: "instagram_url", value: "https://instagram.com/" },
