@@ -2,48 +2,61 @@ import { MetadataRoute } from "next";
 
 export default function robots(): MetadataRoute.Robots {
   const base = process.env.SITE_URL || "https://youroffers.eu";
+
+  const privatePaths = [
+    "/admin",
+    "/admin/",
+    "/admin/*",
+    "/api",
+    "/api/",
+    "/api/*",
+    "/api/affiliate/",
+    "/oauth",
+    "/oauth/",
+    "/oauth/*",
+    "/.well-known/",
+    "/*?*sort=",
+    "/*?*page=",
+    "/mcp",
+    "/mcp/",
+    "/mcp/*"
+  ];
+
   return {
     rules: [
       {
         userAgent: "*",
         allow: "/",
-        disallow: [
-          "/admin",
-          "/admin/",
-          "/api",
-          "/api/",
-          "/api/affiliate/", // block affiliate redirect URLs from indexing
-          "/oauth",
-          "/.well-known/",
-          "/*?*sort=", // block sort/filter parameter combinations
-          "/*?*page=",
-          "/mcp",
-          "/mcp/"
-        ]
+        disallow: privatePaths
       },
       {
         userAgent: "GPTBot",
-        allow: "/" // let ChatGPT crawl for citations
+        allow: "/",
+        disallow: privatePaths
       },
       {
         userAgent: "PerplexityBot",
-        allow: "/"
+        allow: "/",
+        disallow: privatePaths
       },
       {
         userAgent: "Google-Extended",
-        allow: "/" // opt in to Google AI Overviews
+        allow: "/",
+        disallow: privatePaths
       },
       {
         userAgent: "ClaudeBot",
-        allow: "/"
-      },
-      {
-        userAgent: "CCBot",
-        disallow: "/" // block Common Crawl bulk scrapers
+        allow: "/",
+        disallow: privatePaths
       },
       {
         userAgent: "anthropic-ai",
-        allow: "/"
+        allow: "/",
+        disallow: privatePaths
+      },
+      {
+        userAgent: "CCBot",
+        disallow: "/"
       }
     ],
     sitemap: `${base}/sitemap.xml`,
