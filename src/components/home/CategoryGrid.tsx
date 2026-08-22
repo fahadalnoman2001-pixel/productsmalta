@@ -10,8 +10,14 @@ export default function CategoryGrid({
 }) {
   const bMap = new Map(banners.map(b => [b.slotKey, b]));
 
-  // Filter out any dummy test categories if necessary, or show active ones
-  const displayCats = categories.filter(c => c.showOnHomepage !== false);
+  // Safe display list with fallback to all categories
+  const displayCats =
+    categories && categories.length > 0
+      ? categories.filter(c => c.showOnHomepage !== false)
+      : [];
+  const finalCats = displayCats.length > 0 ? displayCats : categories || [];
+
+  if (!finalCats || finalCats.length === 0) return null;
 
   return (
     <section className="container-x py-4 sm:py-5">
@@ -24,7 +30,7 @@ export default function CategoryGrid({
               Shop by Category
             </h2>
             <span className="text-[11px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-medium hidden sm:inline-block">
-              {displayCats.length} Categories
+              {finalCats.length} Categories
             </span>
           </div>
 
@@ -39,7 +45,7 @@ export default function CategoryGrid({
 
         {/* Minimal Compact Category Grid */}
         <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-12 gap-1.5 sm:gap-2">
-          {displayCats.map(c => {
+          {finalCats.map(c => {
             const b = bMap.get(c.slug);
             const img =
               c.image || b?.image || `https://picsum.photos/seed/${c.slug}/200/200`;
