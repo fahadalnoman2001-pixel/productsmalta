@@ -15,15 +15,20 @@ import {
   ArrowRight,
   FolderOpen
 } from "lucide-react";
+import { Locale, getLocalizedPath } from "@/lib/i18n/config";
+import { getDictionary } from "@/lib/i18n/dictionaries";
+import LanguageSwitcher from "./LanguageSwitcher";
 
 export default function Header({
   categories = [],
   siteName,
-  menuItems = []
+  menuItems = [],
+  locale = "en"
 }: {
   categories: any[];
   siteName: string;
   menuItems?: any[];
+  locale?: Locale;
 }) {
   const [open, setOpen] = useState(false);
   const [catMenuOpen, setCatMenuOpen] = useState(false);
@@ -31,6 +36,9 @@ export default function Header({
     categories[0]?.id || null
   );
   const [mobileExpandedCat, setMobileExpandedCat] = useState<string | null>(null);
+
+  const dict = getDictionary(locale);
+  const t = dict.common;
 
   const topNav = menuItems.filter(m => m.location === "topbar" && m.isActive);
   const mainNav = menuItems.filter(m => m.location === "main" && m.isActive);
@@ -61,27 +69,33 @@ export default function Header({
     }
   }
 
+  // Helper for localized internal links
+  const locLink = (path: string) => {
+    if (path.startsWith("http") || path.startsWith("//")) return path;
+    return getLocalizedPath(path, locale);
+  };
+
   return (
     <header className="sticky top-0 z-40 bg-white">
       {/* Top utility strip */}
       <div className="bg-slate-950 text-slate-300 text-xs border-b border-slate-800/80">
-        <div className="container-x flex items-center justify-between h-8.5">
+        <div className="container-x flex items-center justify-between h-9">
           <div className="hidden sm:flex items-center gap-5 text-slate-400">
             <span className="flex items-center gap-1.5">
               <Truck size={12.5} className="text-brand-400" />
-              <span>Curated deals delivered across Europe</span>
+              <span>{t.curatedDealsEurope}</span>
             </span>
             <span className="flex items-center gap-1.5">
               <Tag size={12.5} className="text-emerald-400" />
-              <span>Updated affiliate prices daily</span>
+              <span>{t.updatedPricesDaily}</span>
             </span>
           </div>
-          <div className="flex items-center gap-4 ml-auto text-slate-300 text-[11.5px] font-medium">
+          <div className="flex items-center gap-3.5 ml-auto text-slate-300 text-[11.5px] font-medium">
             {topNav.length > 0 ? (
               topNav.map(item => (
                 <Link
                   key={item.id}
-                  href={item.url}
+                  href={locLink(item.url)}
                   target={item.target || "_self"}
                   className="hover:text-white flex items-center gap-1.5 transition"
                 >
@@ -99,19 +113,24 @@ export default function Header({
               ))
             ) : (
               <>
-                <Link href="/blog" className="hover:text-white transition">
-                  Blog & Guides
+                <Link href={locLink("/blog")} className="hover:text-white transition">
+                  {t.blog}
                 </Link>
                 <span className="text-slate-700">·</span>
-                <Link href="/about" className="hover:text-white transition">
-                  About Us
+                <Link href={locLink("/about")} className="hover:text-white transition">
+                  {t.aboutUs}
                 </Link>
                 <span className="text-slate-700">·</span>
-                <Link href="/contact" className="hover:text-white transition">
-                  Contact
+                <Link href={locLink("/contact")} className="hover:text-white transition">
+                  {t.contact}
                 </Link>
               </>
             )}
+
+            <div className="h-4 w-px bg-slate-800 mx-1 hidden sm:block" />
+
+            {/* Language Switcher Dropdown */}
+            <LanguageSwitcher currentLocale={locale} variant="desktop" />
           </div>
         </div>
       </div>
@@ -128,7 +147,7 @@ export default function Header({
           </button>
 
           {/* Logo */}
-          <Link href="/" className="flex items-center shrink-0 group py-1">
+          <Link href={locLink("/")} className="flex items-center shrink-0 group py-1">
             <img
               src="/logo.png"
               alt={siteName || "YourOffers.eu"}
@@ -137,17 +156,17 @@ export default function Header({
           </Link>
 
           {/* Search Box */}
-          <form action="/products" className="flex-1 max-w-2xl mx-auto">
+          <form action={locLink("/products")} className="flex-1 max-w-2xl mx-auto">
             <div className="relative flex items-center">
               <input
                 name="q"
-                placeholder="Search products, top brands, categories and deals..."
+                placeholder={t.searchPlaceholder}
                 className="w-full rounded-l-xl border border-slate-200 border-r-0 pl-4 pr-3 py-2.5 text-sm bg-slate-50/50 hover:bg-white focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all placeholder:text-slate-400"
               />
               <button
                 type="submit"
                 className="rounded-r-xl bg-brand-500 hover:bg-brand-600 active:bg-brand-700 text-white px-5 py-2.5 flex items-center justify-center transition-all shadow-xs"
-                aria-label="Search"
+                aria-label={t.search}
               >
                 <Search size={17} strokeWidth={2.2} />
               </button>
@@ -157,28 +176,28 @@ export default function Header({
           {/* Right Action Icons */}
           <div className="hidden md:flex items-center gap-2 shrink-0">
             <Link
-              href="/products"
+              href={locLink("/products")}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-slate-700 hover:text-brand-600 hover:bg-brand-50/60 font-medium text-xs transition"
             >
               <div className="w-8 h-8 rounded-lg bg-orange-50 text-brand-500 flex items-center justify-center">
                 <Tag size={16} />
               </div>
               <div className="flex flex-col text-left">
-                <span className="font-bold text-slate-900 leading-tight">Deals</span>
-                <span className="text-[10px] text-slate-400">All Offers</span>
+                <span className="font-bold text-slate-900 leading-tight">{t.deals}</span>
+                <span className="text-[10px] text-slate-400">{t.allOffers}</span>
               </div>
             </Link>
 
             <Link
-              href="/blog"
+              href={locLink("/blog")}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-slate-700 hover:text-brand-600 hover:bg-brand-50/60 font-medium text-xs transition"
             >
               <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
                 <Sparkles size={16} />
               </div>
               <div className="flex flex-col text-left">
-                <span className="font-bold text-slate-900 leading-tight">Guides</span>
-                <span className="text-[10px] text-slate-400">Buying Tips</span>
+                <span className="font-bold text-slate-900 leading-tight">{t.guides}</span>
+                <span className="text-[10px] text-slate-400">{t.buyingTips}</span>
               </div>
             </Link>
           </div>
@@ -199,7 +218,7 @@ export default function Header({
               className="flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs px-3.5 py-2 rounded-xl shadow-xs transition-all duration-150 active:scale-98"
             >
               <LayoutGrid size={15} strokeWidth={2.2} className="text-orange-400" />
-              <span>All Categories</span>
+              <span>{t.allCategories}</span>
               <ChevronDown
                 size={13}
                 strokeWidth={2.5}
@@ -214,10 +233,10 @@ export default function Header({
                 <div className="w-[280px] border-r border-slate-100 flex flex-col justify-between bg-slate-50/50">
                   <div className="px-3.5 py-2.5 border-b border-slate-100 bg-white flex items-center justify-between">
                     <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                      Categories
+                      {t.categories}
                     </span>
                     <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-full font-medium">
-                      {categories.length} total
+                      {categories.length} {t.totalCategories}
                     </span>
                   </div>
 
@@ -233,7 +252,7 @@ export default function Header({
                           className="relative"
                         >
                           <Link
-                            href={`/category/${c.slug}`}
+                            href={locLink(`/category/${c.slug}`)}
                             className={`flex items-center justify-between px-3 py-2 rounded-xl text-[13px] font-medium transition-all ${
                               isSelected
                                 ? "bg-white text-brand-600 shadow-xs font-semibold"
@@ -266,10 +285,10 @@ export default function Header({
 
                   <div className="p-2 border-t border-slate-100 bg-white">
                     <Link
-                      href="/products"
+                      href={locLink("/products")}
                       className="flex items-center justify-center gap-1.5 text-center w-full py-2 text-xs font-semibold text-brand-600 hover:text-brand-700 bg-brand-50/60 hover:bg-brand-50 rounded-xl transition"
                     >
-                      <span>View All Products</span>
+                      <span>{t.viewAllProducts}</span>
                       <ArrowRight size={13} />
                     </Link>
                   </div>
@@ -289,20 +308,20 @@ export default function Header({
                               </h3>
                               {selectedCategory.subcategories?.length > 0 && (
                                 <span className="text-[11px] bg-brand-50 text-brand-700 px-2 py-0.5 rounded-full font-bold">
-                                  {selectedCategory.subcategories.length} subcategories
+                                  {selectedCategory.subcategories.length} {t.subcategories}
                                 </span>
                               )}
                             </div>
                             <p className="text-xs text-slate-400 mt-0.5 line-clamp-1">
                               {selectedCategory.description ||
-                                `Shop top-rated deals in ${selectedCategory.name}`}
+                                `${t.browseAll} ${selectedCategory.name}`}
                             </p>
                           </div>
                           <Link
-                            href={`/category/${selectedCategory.slug}`}
+                            href={locLink(`/category/${selectedCategory.slug}`)}
                             className="text-xs font-semibold text-brand-600 hover:text-brand-700 flex items-center gap-1 shrink-0 bg-brand-50/60 hover:bg-brand-50 px-2.5 py-1.5 rounded-lg transition"
                           >
-                            <span>Browse All</span>
+                            <span>{t.browseAll}</span>
                             <ChevronRight size={13} />
                           </Link>
                         </div>
@@ -315,7 +334,9 @@ export default function Header({
                               {selectedCategory.subcategories.map((sub: any) => (
                                 <Link
                                   key={sub.id}
-                                  href={`/category/${selectedCategory.slug}?subcategory=${sub.slug}`}
+                                  href={locLink(
+                                    `/category/${selectedCategory.slug}?subcategory=${sub.slug}`
+                                  )}
                                   className="group/sub flex items-center justify-between px-3 py-2 rounded-xl text-slate-700 hover:text-brand-600 hover:bg-brand-50/70 border border-slate-100 hover:border-brand-100 font-medium text-[12.5px] transition-all"
                                 >
                                   <span className="truncate">{sub.name}</span>
@@ -331,13 +352,13 @@ export default function Header({
                           <div className="py-12 text-center text-slate-400">
                             <FolderOpen size={28} className="mx-auto mb-2 opacity-50" />
                             <p className="text-sm font-medium text-slate-600">
-                              Explore all products in {selectedCategory.name}
+                              {t.browseAll} {selectedCategory.name}
                             </p>
                             <Link
-                              href={`/category/${selectedCategory.slug}`}
+                              href={locLink(`/category/${selectedCategory.slug}`)}
                               className="inline-flex items-center gap-1 mt-3 px-3.5 py-1.5 rounded-lg bg-brand-50 text-brand-600 font-semibold text-xs hover:bg-brand-100 transition"
                             >
-                              <span>View Category Page</span>
+                              <span>{t.browseAll}</span>
                               <ChevronRight size={13} />
                             </Link>
                           </div>
@@ -348,13 +369,13 @@ export default function Header({
                       <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
                         <span className="flex items-center gap-1.5">
                           <Tag size={13} className="text-brand-500" />
-                          <span>Verified European prices & daily deals</span>
+                          <span>{t.verifiedEuropeanPrices}</span>
                         </span>
                         <Link
-                          href={`/category/${selectedCategory.slug}`}
+                          href={locLink(`/category/${selectedCategory.slug}`)}
                           className="font-semibold text-slate-700 hover:text-brand-600"
                         >
-                          All {selectedCategory.name} &rarr;
+                          {t.allProducts} &rarr;
                         </Link>
                       </div>
                     </div>
@@ -366,13 +387,13 @@ export default function Header({
 
           <div className="h-5 w-px bg-slate-200 mx-1 shrink-0" />
 
-          {/* Main Navigation Items (No scrollbars) */}
+          {/* Main Navigation Items */}
           <div className="flex items-center gap-1 overflow-x-auto no-scrollbar flex-1 py-1">
             {mainNav.length > 0 ? (
               mainNav.map(item => (
                 <Link
                   key={item.id}
-                  href={item.url}
+                  href={locLink(item.url)}
                   target={item.target || "_self"}
                   className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 text-[13px] font-medium transition-all shrink-0 duration-150 whitespace-nowrap ${
                     item.isHighlighted
@@ -395,21 +416,21 @@ export default function Header({
             ) : (
               <>
                 <Link
-                  href="/"
+                  href={locLink("/")}
                   className="px-3 py-1.5 rounded-lg text-slate-700 hover:text-brand-600 hover:bg-slate-100/70 text-[13px] font-medium transition shrink-0 whitespace-nowrap"
                 >
-                  Home
+                  {t.home}
                 </Link>
                 <Link
-                  href="/products"
+                  href={locLink("/products")}
                   className="px-3 py-1.5 rounded-lg text-slate-700 hover:text-brand-600 hover:bg-slate-100/70 text-[13px] font-medium transition shrink-0 whitespace-nowrap"
                 >
-                  All Products
+                  {t.allProducts}
                 </Link>
                 {categories.slice(0, 6).map(c => (
                   <Link
                     key={c.id}
-                    href={`/category/${c.slug}`}
+                    href={locLink(`/category/${c.slug}`)}
                     className="px-3 py-1.5 rounded-lg text-slate-700 hover:text-brand-600 hover:bg-slate-100/70 text-[13px] font-medium transition shrink-0 whitespace-nowrap"
                   >
                     {c.name}
@@ -423,13 +444,13 @@ export default function Header({
           {!hasHighlightedInMainNav && (
             <div className="shrink-0 pl-2">
               <Link
-                href="/collection/weekend-sales"
+                href={locLink("/collection/weekend-sales")}
                 className="inline-flex items-center gap-1.5 bg-gradient-to-r from-red-500/10 via-orange-500/10 to-amber-500/10 hover:from-red-500/20 hover:to-amber-500/20 text-red-600 font-bold text-xs px-3 py-1.5 rounded-xl border border-red-200/60 shadow-xs transition-all duration-200 group whitespace-nowrap"
               >
                 <Flame size={14} className="text-red-500 group-hover:scale-110 transition-transform" />
-                <span>Weekend Sales</span>
+                <span>{t.weekendSales}</span>
                 <span className="bg-gradient-to-r from-red-600 to-rose-600 text-white text-[9px] font-extrabold uppercase px-1.5 py-0.2 rounded-full shadow-xs">
-                  HOT
+                  {t.hot}
                 </span>
               </Link>
             </div>
@@ -437,18 +458,23 @@ export default function Header({
         </div>
       </nav>
 
-      {/* Mobile Drawer with Accordion Subcategories */}
+      {/* Mobile Drawer with Language Switcher & Accordion Subcategories */}
       {open && (
         <div className="lg:hidden bg-white border-b border-slate-200 py-3 px-4 shadow-xl animate-in slide-in-from-top-2 duration-150 max-h-[85vh] overflow-y-auto">
+          {/* Language Switcher in Mobile Drawer */}
+          <div className="mb-4">
+            <LanguageSwitcher currentLocale={locale} variant="mobile" />
+          </div>
+
           <div className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 px-1">
-            Menu Navigation
+            {t.menuNavigation}
           </div>
           <div className="space-y-1">
             {mainNav.length > 0 ? (
               mainNav.map(item => (
                 <Link
                   key={item.id}
-                  href={item.url}
+                  href={locLink(item.url)}
                   target={item.target || "_self"}
                   className={`flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium transition ${
                     item.isHighlighted
@@ -472,39 +498,39 @@ export default function Header({
             ) : (
               <>
                 <Link
-                  href="/"
+                  href={locLink("/")}
                   className="block px-3 py-2 rounded-xl text-sm font-medium text-slate-800 hover:bg-slate-100"
                   onClick={() => setOpen(false)}
                 >
-                  Home
+                  {t.home}
                 </Link>
                 <Link
-                  href="/products"
+                  href={locLink("/products")}
                   className="block px-3 py-2 rounded-xl text-sm font-medium text-slate-800 hover:bg-slate-100"
                   onClick={() => setOpen(false)}
                 >
-                  All Products
+                  {t.allProducts}
                 </Link>
                 <Link
-                  href="/blog"
+                  href={locLink("/blog")}
                   className="block px-3 py-2 rounded-xl text-sm font-medium text-slate-800 hover:bg-slate-100"
                   onClick={() => setOpen(false)}
                 >
-                  Blog & Guides
+                  {t.blog}
                 </Link>
                 <Link
-                  href="/about"
+                  href={locLink("/about")}
                   className="block px-3 py-2 rounded-xl text-sm font-medium text-slate-800 hover:bg-slate-100"
                   onClick={() => setOpen(false)}
                 >
-                  About Us
+                  {t.aboutUs}
                 </Link>
                 <Link
-                  href="/contact"
+                  href={locLink("/contact")}
                   className="block px-3 py-2 rounded-xl text-sm font-medium text-slate-800 hover:bg-slate-100"
                   onClick={() => setOpen(false)}
                 >
-                  Contact
+                  {t.contact}
                 </Link>
               </>
             )}
@@ -513,12 +539,12 @@ export default function Header({
           {topNav.length > 0 && (
             <div className="pt-3 mt-3 border-t border-slate-100 space-y-1">
               <div className="text-xs font-bold uppercase tracking-wider text-slate-400 px-1 mb-1">
-                Quick Links
+                {t.quickLinks}
               </div>
               {topNav.map(item => (
                 <Link
                   key={item.id}
-                  href={item.url}
+                  href={locLink(item.url)}
                   target={item.target || "_self"}
                   className="block px-3 py-1.5 rounded-lg text-sm text-slate-600 hover:text-brand-600 hover:bg-slate-50 transition"
                   onClick={() => setOpen(false)}
@@ -532,7 +558,7 @@ export default function Header({
           {/* Categories with Subcategory Accordion on Mobile */}
           <div className="pt-3 mt-3 border-t border-slate-100">
             <div className="text-xs font-bold uppercase tracking-wider text-slate-400 px-1 mb-2">
-              Browse Categories & Subcategories
+              {t.browseCategoriesSubs}
             </div>
             <div className="space-y-1">
               {categories.map(c => {
@@ -543,7 +569,7 @@ export default function Header({
                   <div key={c.id} className="rounded-xl border border-slate-100 overflow-hidden">
                     <div className="flex items-center justify-between px-3 py-2 bg-slate-50/70">
                       <Link
-                        href={`/category/${c.slug}`}
+                        href={locLink(`/category/${c.slug}`)}
                         className="text-xs font-semibold text-slate-800 hover:text-brand-600 flex-1 truncate"
                         onClick={() => setOpen(false)}
                       >
@@ -570,7 +596,7 @@ export default function Header({
                         {c.subcategories.map((sub: any) => (
                           <Link
                             key={sub.id}
-                            href={`/category/${c.slug}?subcategory=${sub.slug}`}
+                            href={locLink(`/category/${c.slug}?subcategory=${sub.slug}`)}
                             className="px-2 py-1.5 text-[11px] font-medium text-slate-600 hover:text-brand-600 hover:bg-brand-50 rounded-lg truncate transition"
                             onClick={() => setOpen(false)}
                           >

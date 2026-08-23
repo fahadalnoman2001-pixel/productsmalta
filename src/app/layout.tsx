@@ -3,6 +3,8 @@ import type { Metadata } from "next";
 import { prisma } from "@/lib/db";
 import Script from "next/script";
 import GoogleAnalytics from "@/components/analytics/GoogleAnalytics";
+import { headers } from "next/headers";
+import { Locale, isValidLocale } from "@/lib/i18n/config";
 
 const siteBase = process.env.SITE_URL || "https://youroffers.eu";
 
@@ -61,6 +63,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const s = await getTrackingSettings();
   const gaId = s.ga4_id || "G-LP8WYSQ3VG";
 
+  const headersList = headers();
+  const rawLocale = headersList.get("x-locale") || "en";
+  const locale: Locale = isValidLocale(rawLocale) ? rawLocale : "en";
+
   const organizationSchema = {
     "@context": "https://schema.org",
     "@type": "Organization",
@@ -83,7 +89,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   };
 
   return (
-    <html lang="en">
+    <html lang={locale}>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />

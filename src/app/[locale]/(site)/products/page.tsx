@@ -1,0 +1,374 @@
+import { prisma } from "@/lib/db";
+import ProductCard from "@/components/product/ProductCard";
+import ProductSort from "@/components/product/ProductSort";
+import SidebarPoster from "@/components/SidebarPoster";
+import Link from "next/link";
+import { SlidersHorizontal, Tag } from "lucide-react";
+import { parseJSON } from "@/lib/utils";
+import { Locale, isValidLocale, getHreflangMetadata, getLocalizedPath } from "@/lib/i18n/config";
+import { getDictionary } from "@/lib/i18n/dictionaries";
+import type { Metadata } from "next";
+
+export const dynamic = "force-dynamic";
+
+export async function generateMetadata({
+  params,
+  searchParams
+}: {
+  params: { locale: string };
+  searchParams: Record<string, string>;
+}): Promise<Metadata> {
+  const rawLocale = params?.locale || "en";
+  const locale: Locale = isValidLocale(rawLocale) ? rawLocale : "en";
+  const dict = getDictionary(locale);
+  const t = dict.common;
+
+  const categorySlug = searchParams.category;
+  const collectionSlug = searchParams.collection;
+  const q = searchParams.q;
+
+  if (categorySlug) {
+    const c = await prisma.category.findUnique({ where: { slug: categorySlug } });
+    if (c) {
+      const tags = parseJSON<string[]>(c.tags, []);
+      return {
+        title: c.seoTitle || `${c.name} Deals in Europe — Best Prices`,
+        description:
+          c.seoDescription ||
+          c.description ||
+          `Browse the best ${c.name} deals, top picks, and verified offers across Europe on YourOffers.eu.`,
+        keywords: tags.length > 0 ? tags.join(", ") : undefined,
+        alternates: getHreflangMetadata(`/category/${c.slug}`, locale),
+        openGraph: {
+          title: c.seoTitle || `${c.name} Deals in Europe`,
+          description: c.seoDescription || c.description || `Explore ${c.name} products and deals in Europe.`,
+          images: c.image ? [c.image] : []
+        },
+        twitter: {
+          card: "summary_large_image",
+          title: c.seoTitle || `${c.name} Deals in Europe`,
+          description: c.seoDescription || c.description || `Explore ${c.name} products and deals in Europe.`,
+          images: c.image ? [c.image] : []
+        }
+      };
+    }
+  }
+
+  if (collectionSlug) {
+    const col = await prisma.collection.findUnique({ where: { slug: collectionSlug } });
+    if (col) {
+      return {
+        title: `${col.name} — Curated Deals in Europe`,
+        description:
+          col.description ||
+          `Browse our curated ${col.name} collection of top products across Europe.`,
+        alternates: getHreflangMetadata(`/collection/${col.slug}`, locale),
+        openGraph: { images: col.image ? [col.image] : [] }
+      };
+    }
+  }
+
+  if (q) {
+    return {
+      title: `${t.search}: “${q}” — Best Deals in Europe`,
+      description: `Search results for ${q} on YourOffers.eu. Discover top deals and products across Europe.`,
+      alternates: getHreflangMetadata("/products", locale)
+    };
+  }
+
+  const titles: Record<Locale, string> = {
+    en: "All Products — Curated Affiliate Deals Across Europe",
+    de: "Alle Produkte — Kuratierte Deals & Angebote in Europa",
+    fr: "Tous les produits — Bons Plans et Offres en Europe",
+    es: "Todos los productos — Ofertas Seleccionadas en Europa"
+  };
+
+  const descriptions: Record<Locale, string> = {
+    en: "Browse all products, trending offers, and verified deals across Europe on YourOffers.eu.",
+    de: "Durchsuchen Sie alle Produkte, Trends und geprüfte Angebote in ganz Europa auf YourOffers.eu.",
+    fr: "Découvrez tous les produits, offres tendance et réductions vérifiées en Europe sur YourOffers.eu.",
+    es: "Explore todos los productos, promociones y ofertas verificadas en Europa en YourOffers.eu."
+  };
+
+  return {
+    title: titles[locale],
+    description: descriptions[locale],
+    alternates: getHreflangMetadata("/products", locale)
+  };
+}
+
+export default async function ProductsPage({
+  params,
+  searchParams
+}: {
+  params: { locale: string };
+  searchParams: Record<string, string>;
+}) {
+  const rawLocale = params?.locale || "en";
+  const locale: Locale = isValidLocale(rawLocale) ? rawLocale : "en";
+  const dict = getDictionary(locale);
+  const t = dict.common;
+
+  const q = searchParams.q?.toLowerCase();
+  const categorySlug = searchParams.category;
+  const brand = searchParams.brand;
+  const platform = searchParams.platform;
+  const collectionSlug = searchParams.collection;
+  const featured = searchParams.featured === "1";
+  const best = searchParams.best === "1";
+  const minPrice = searchParams.min ? parseFloat(searchParams.min) : undefined;
+  const maxPrice = searchParams.max ? parseFloat(searchParams.max) : undefined;
+  const rating = searchParams.rating ? parseFloat(searchParams.rating) : undefined;
+  const sort = searchParams.sort || "new";
+
+  const where: any = { isActive: true };
+  if (q)
+    where.OR = [
+      { title: { contains: q } },
+      { description: { contains: q } },
+      { brand: { contains: q } }
+    ];
+  if (brand) where.brand = brand;
+  if (platform) where.platform = platform;
+  if (featured) where.isFeatured = true;
+  if (best) where.isBestSeller = true;
+  if (minPrice != null) where.price = { ...(where.price || {}), gte: minPrice };
+  if (maxPrice != null) where.price = { ...(where.price || {}), lte: maxPrice };
+  if (rating != null) where.rating = { gte: rating };
+
+  let activeCategory: any = null;
+  if (categorySlug) {
+    activeCategory = await prisma.category.findUnique({
+      where: { slug: categorySlug },
+      include: { subcategories: true }
+    });
+    if (activeCategory) where.categoryId = activeCategory.id;
+  }
+  let activeCollection: any = null;
+  if (collectionSlug) {
+    activeCollection = await prisma.collection.findUnique({
+      where: { slug: collectionSlug },
+      include: { products: true }
+    });
+    if (activeCollection) {
+      if (activeCollection.type === "featured") where.isFeatured = true;
+      else if (activeCollection.type === "bestseller") where.isBestSeller = true;
+      else {
+        const ids = activeCollection.products.map((p: any) => p.productId);
+        where.id = { in: ids };
+      }
+    }
+  }
+
+  const orderBy: any =
+    sort === "price-asc"
+      ? { price: "asc" }
+      : sort === "price-desc"
+      ? { price: "desc" }
+      : sort === "rating"
+      ? { rating: "desc" }
+      : sort === "popular"
+      ? { clicks: "desc" }
+      : { createdAt: "desc" };
+
+  const [products, cats, brands, platforms, sidebarBanner] = await Promise.all([
+    prisma.product.findMany({ where, include: { category: true }, orderBy, take: 60 }),
+    prisma.category.findMany({ orderBy: { order: "asc" } }),
+    prisma.product.findMany({
+      where: { isActive: true },
+      distinct: ["brand"],
+      select: { brand: true }
+    }),
+    prisma.product.findMany({
+      where: { isActive: true },
+      distinct: ["platform"],
+      select: { platform: true }
+    }),
+    prisma.banner.findFirst({
+      where: { slot: "sidebar", isActive: true },
+      orderBy: { order: "asc" }
+    })
+  ]);
+
+  const heading =
+    activeCategory?.name ||
+    activeCollection?.name ||
+    (featured
+      ? t.featuredProducts
+      : best
+      ? t.bestSellers
+      : q
+      ? `${t.search}: “${searchParams.q}”`
+      : t.allProducts);
+
+  const productsUrl = getLocalizedPath("/products", locale);
+
+  return (
+    <div className="container-x py-6">
+      <nav className="text-sm text-ink-400 mb-3 flex items-center gap-1.5">
+        <Link href={getLocalizedPath("/", locale)} className="hover:text-brand-600 transition">
+          {t.home}
+        </Link>
+        <span>/</span>
+        <span className="text-ink-600 font-medium">{heading}</span>
+      </nav>
+
+      {/* Category Header Card if category is active */}
+      {activeCategory ? (
+        <div className="bg-white rounded-xl border border-ink-100 p-6 mb-6 shadow-card flex flex-col md:flex-row gap-5 items-start md:items-center">
+          {activeCategory.image && (
+            <div className="w-20 h-20 md:w-24 md:h-24 rounded-xl overflow-hidden shrink-0 bg-brand-50 border border-ink-100 flex items-center justify-center">
+              <img
+                src={activeCategory.image}
+                alt={activeCategory.name}
+                className="w-full h-full object-cover"
+              />
+            </div>
+          )}
+          <div className="flex-1">
+            <h1 className="font-display text-2xl md:text-3xl font-extrabold text-ink-900">
+              {activeCategory.name}
+            </h1>
+            {activeCategory.description && (
+              <p className="text-sm text-ink-600 mt-1.5 leading-relaxed max-w-3xl">
+                {activeCategory.description}
+              </p>
+            )}
+            {activeCategory.subcategories?.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-ink-100">
+                <span className="text-xs font-semibold text-ink-400 uppercase tracking-wide self-center mr-1">
+                  {t.subcategories}:
+                </span>
+                {activeCategory.subcategories.map((sub: any) => (
+                  <span
+                    key={sub.id}
+                    className="text-xs bg-ink-50 hover:bg-brand-50 hover:text-brand-700 text-ink-700 font-medium px-2.5 py-1 rounded-md border border-ink-100 transition"
+                  >
+                    {sub.name}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        <h1 className="font-display text-2xl md:text-3xl font-bold text-ink-900 mb-5">{heading}</h1>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-[250px_1fr] gap-6">
+        <aside className="bg-white rounded-lg border border-ink-100 p-4 h-fit lg:sticky lg:top-24">
+          <div className="flex items-center gap-2 font-semibold text-ink-800 mb-3">
+            <SlidersHorizontal size={16} /> {t.filters}
+          </div>
+          <form action={productsUrl} className="space-y-4 text-sm">
+            <div>
+              <div className="label">{t.search}</div>
+              <input
+                name="q"
+                defaultValue={searchParams.q}
+                className="input"
+                placeholder={t.searchPlaceholder}
+              />
+            </div>
+            <div>
+              <div className="label">{t.categories}</div>
+              <select name="category" defaultValue={categorySlug || ""} className="input">
+                <option value="">{t.allCategories}</option>
+                {cats.map(c => (
+                  <option key={c.id} value={c.slug}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <div className="label">{t.brand}</div>
+              <select name="brand" defaultValue={brand || ""} className="input">
+                <option value="">{t.allBrands}</option>
+                {brands
+                  .filter(b => b.brand)
+                  .map(b => (
+                    <option key={b.brand} value={b.brand!}>
+                      {b.brand}
+                    </option>
+                  ))}
+              </select>
+            </div>
+            <div>
+              <div className="label">{t.retailer}</div>
+              <select name="platform" defaultValue={platform || ""} className="input">
+                <option value="">{t.allRetailers}</option>
+                {platforms
+                  .filter(p => p.platform)
+                  .map(p => (
+                    <option key={p.platform} value={p.platform!}>
+                      {p.platform}
+                    </option>
+                  ))}
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <div className="label">{t.minPrice}</div>
+                <input
+                  name="min"
+                  type="number"
+                  defaultValue={searchParams.min}
+                  className="input"
+                />
+              </div>
+              <div>
+                <div className="label">{t.maxPrice}</div>
+                <input
+                  name="max"
+                  type="number"
+                  defaultValue={searchParams.max}
+                  className="input"
+                />
+              </div>
+            </div>
+            <div>
+              <div className="label">{t.minRating}</div>
+              <select name="rating" defaultValue={searchParams.rating || ""} className="input">
+                <option value="">{t.anyRating}</option>
+                <option value="4">{t.fourStarUp}</option>
+                <option value="4.5">{t.fourHalfStarUp}</option>
+              </select>
+            </div>
+            {collectionSlug && <input type="hidden" name="collection" value={collectionSlug} />}
+            <button className="btn-primary w-full">{t.applyFilters}</button>
+            <Link href={productsUrl} className="btn-secondary w-full text-center">
+              {t.clearFilters}
+            </Link>
+          </form>
+          <SidebarPoster banner={sidebarBanner} />
+        </aside>
+
+        <div>
+          <div className="flex items-center justify-between mb-4 bg-white rounded-lg border border-ink-100 px-4 py-2.5">
+            <span className="text-sm text-ink-500">
+              {products.length}{" "}
+              {products.length === 1 ? t.offerFound : t.offersFound}
+            </span>
+            <ProductSort sort={sort} />
+          </div>
+
+          {products.length === 0 ? (
+            <div className="bg-white rounded-lg border border-ink-100 p-12 text-center text-ink-400">
+              {t.noProductsFound}{" "}
+              <Link href={productsUrl} className="text-brand-600 hover:underline font-semibold">
+                {t.clearFilters}
+              </Link>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
+              {products.map(p => (
+                <ProductCard key={p.id} p={p} locale={locale} />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -6,6 +6,8 @@ import SidebarPoster from "@/components/SidebarPoster";
 import Link from "next/link";
 import { SlidersHorizontal, Tag } from "lucide-react";
 import { parseJSON } from "@/lib/utils";
+import { Locale, isValidLocale, getHreflangMetadata, getLocalizedPath } from "@/lib/i18n/config";
+import { getDictionary } from "@/lib/i18n/dictionaries";
 import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
@@ -14,9 +16,12 @@ export async function generateMetadata({
   params,
   searchParams
 }: {
-  params: { slug: string };
+  params: { locale: string; slug: string };
   searchParams: Record<string, string>;
 }): Promise<Metadata> {
+  const rawLocale = params?.locale || "en";
+  const locale: Locale = isValidLocale(rawLocale) ? rawLocale : "en";
+
   const c = await prisma.category.findUnique({
     where: { slug: params.slug },
     include: { subcategories: true }
@@ -35,9 +40,7 @@ export async function generateMetadata({
     title: metaTitle,
     description: metaDesc,
     keywords: tags.length > 0 ? tags.join(", ") : undefined,
-    alternates: {
-      canonical: `/category/${params.slug}`
-    },
+    alternates: getHreflangMetadata(`/category/${params.slug}`, locale),
     openGraph: {
       title: `${c.name} Deals in Europe | YourOffers.eu`,
       description: metaDesc,
@@ -56,9 +59,14 @@ export default async function CategoryPage({
   params,
   searchParams
 }: {
-  params: { slug: string };
+  params: { locale: string; slug: string };
   searchParams: Record<string, string>;
 }) {
+  const rawLocale = params?.locale || "en";
+  const locale: Locale = isValidLocale(rawLocale) ? rawLocale : "en";
+  const dict = getDictionary(locale);
+  const t = dict.common;
+
   const c = await prisma.category.findUnique({
     where: { slug: params.slug },
     include: { subcategories: true }
@@ -122,18 +130,27 @@ export default async function CategoryPage({
       select: { platform: true },
       distinct: ["platform"]
     }),
-    prisma.banner.findFirst({ where: { slot: "sidebar", isActive: true }, orderBy: { order: "asc" } })
+    prisma.banner.findFirst({
+      where: { slot: "sidebar", isActive: true },
+      orderBy: { order: "asc" }
+    })
   ]);
 
   const base = process.env.SITE_URL || "https://youroffers.eu";
+  const localizedCategoryUrl = `${base}${getLocalizedPath(`/category/${c.slug}`, locale)}`;
 
   const breadcrumbSchema = {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
     itemListElement: [
-      { "@type": "ListItem", position: 1, name: "Home", item: `${base}/` },
-      { "@type": "ListItem", position: 2, name: "Categories", item: `${base}/products` },
-      { "@type": "ListItem", position: 3, name: c.name, item: `${base}/category/${c.slug}` }
+      { "@type": "ListItem", position: 1, name: t.home, item: `${base}${getLocalizedPath("/", locale)}` },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: t.categories,
+        item: `${base}${getLocalizedPath("/products", locale)}`
+      },
+      { "@type": "ListItem", position: 3, name: c.name, item: localizedCategoryUrl }
     ]
   };
 
@@ -145,9 +162,11 @@ export default async function CategoryPage({
       "@type": "ListItem",
       position: idx + 1,
       name: p.title,
-      url: `${base}/products/${p.slug}`
+      url: `${base}${getLocalizedPath(`/products/${p.slug}`, locale)}`
     }))
   };
+
+  const categoryPagePath = getLocalizedPath(`/category/${c.slug}`, locale);
 
   return (
     <div className="container-x py-8">
@@ -162,12 +181,12 @@ export default async function CategoryPage({
 
       {/* Breadcrumbs */}
       <nav className="text-sm text-ink-500 mb-6 flex flex-wrap items-center gap-1.5">
-        <Link href="/" className="hover:text-brand-600 transition">
-          Home
+        <Link href={getLocalizedPath("/", locale)} className="hover:text-brand-600 transition">
+          {t.home}
         </Link>
         <span>/</span>
-        <Link href="/products" className="hover:text-brand-600 transition">
-          Categories
+        <Link href={getLocalizedPath("/products", locale)} className="hover:text-brand-600 transition">
+          {t.categories}
         </Link>
         <span>/</span>
         <span className="text-ink-900 font-semibold">{c.name}</span>
@@ -177,7 +196,7 @@ export default async function CategoryPage({
       <div className="bg-white rounded-xl border border-ink-100 p-6 md:p-8 mb-8 shadow-card flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
           <div className="flex items-center gap-2 text-brand-600 text-xs font-bold uppercase tracking-wider mb-2">
-            <Tag size={14} /> Curated European Category Deals
+            <Tag size={14} /> {t.curatedCategoryDeals}
           </div>
           <h1 className="font-display text-2xl md:text-3xl font-extrabold text-ink-900">
             {c.name} Deals & Buying Guides
@@ -211,33 +230,40 @@ export default async function CategoryPage({
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         {/* Sidebar Filters */}
         <aside className="lg:col-span-1 space-y-6">
-          <form className="bg-white rounded-xl border border-ink-100 p-5 shadow-card space-y-4">
+          <form
+            action={categoryPagePath}
+            className="bg-white rounded-xl border border-ink-100 p-5 shadow-card space-y-4"
+          >
             <div className="flex items-center justify-between border-b border-ink-100 pb-3">
               <span className="font-bold text-ink-900 text-sm flex items-center gap-2">
-                <SlidersHorizontal size={16} /> Filters
+                <SlidersHorizontal size={16} /> {t.filters}
               </span>
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-ink-600 block mb-1">Search in {c.name}</label>
+              <label className="text-xs font-semibold text-ink-600 block mb-1">
+                {t.search} in {c.name}
+              </label>
               <input
                 type="text"
                 name="q"
                 defaultValue={searchParams.q || ""}
-                placeholder="Search..."
+                placeholder={`${t.search}...`}
                 className="w-full border border-ink-200 rounded-md px-3 py-1.5 text-sm focus:outline-brand-500"
               />
             </div>
 
             {brands.length > 0 && (
               <div>
-                <label className="text-xs font-semibold text-ink-600 block mb-1">Brand</label>
+                <label className="text-xs font-semibold text-ink-600 block mb-1">
+                  {t.brand}
+                </label>
                 <select
                   name="brand"
                   defaultValue={brand || ""}
                   className="w-full border border-ink-200 rounded-md px-2 py-1.5 text-sm bg-white text-ink-800"
                 >
-                  <option value="">All Brands</option>
+                  <option value="">{t.allBrands}</option>
                   {brands.map(
                     b =>
                       b.brand && (
@@ -252,13 +278,15 @@ export default async function CategoryPage({
 
             {platforms.length > 0 && (
               <div>
-                <label className="text-xs font-semibold text-ink-600 block mb-1">Retailer</label>
+                <label className="text-xs font-semibold text-ink-600 block mb-1">
+                  {t.retailer}
+                </label>
                 <select
                   name="platform"
                   defaultValue={platform || ""}
                   className="w-full border border-ink-200 rounded-md px-2 py-1.5 text-sm bg-white text-ink-800"
                 >
-                  <option value="">All Retailers</option>
+                  <option value="">{t.allRetailers}</option>
                   {platforms.map(
                     p =>
                       p.platform && (
@@ -276,13 +304,13 @@ export default async function CategoryPage({
                 type="submit"
                 className="flex-1 bg-brand-500 hover:bg-brand-600 text-white font-semibold text-xs py-2 rounded-md transition"
               >
-                Apply
+                {t.applyFilters}
               </button>
               <Link
-                href={`/category/${c.slug}`}
+                href={categoryPagePath}
                 className="px-3 py-2 border border-slate-200 text-slate-600 hover:bg-slate-50 font-semibold text-xs rounded-md text-center transition"
               >
-                Reset
+                {t.reset}
               </Link>
             </div>
           </form>
@@ -294,7 +322,8 @@ export default async function CategoryPage({
         <main className="lg:col-span-3">
           <div className="flex items-center justify-between mb-4 bg-white border border-ink-100 px-4 py-2.5 rounded-lg shadow-xs">
             <span className="text-xs font-semibold text-ink-600">
-              {products.length} {products.length === 1 ? "offer found" : "offers found"}
+              {products.length}{" "}
+              {products.length === 1 ? t.offerFound : t.offersFound}
             </span>
             <ProductSort sort={sort} />
           </div>
@@ -302,19 +331,19 @@ export default async function CategoryPage({
           {products.length === 0 ? (
             <div className="bg-white rounded-xl border border-ink-100 p-12 text-center shadow-card">
               <Tag className="mx-auto text-slate-300 mb-3" size={32} />
-              <h3 className="text-base font-bold text-ink-900">No products found in this category</h3>
-              <p className="text-xs text-ink-500 mt-1">Try clearing your filters or search keywords.</p>
+              <h3 className="text-base font-bold text-ink-900">{t.noProductsFound}</h3>
+              <p className="text-xs text-ink-500 mt-1">{t.clearFilters}</p>
               <Link
-                href={`/category/${c.slug}`}
+                href={categoryPagePath}
                 className="inline-block mt-4 text-xs font-semibold text-brand-600 hover:underline"
               >
-                Clear all filters
+                {t.clearFilters}
               </Link>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
               {products.map(p => (
-                <ProductCard key={p.id} p={p} />
+                <ProductCard key={p.id} p={p} locale={locale} />
               ))}
             </div>
           )}

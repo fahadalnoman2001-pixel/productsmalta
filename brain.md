@@ -327,3 +327,25 @@ Below is the detailed chronological record of all diagnostics, schema migrations
 ### 7. Git Synchronization
 - Committed and pushed all changes, schemas, configurations, and documentation to GitHub: [github.com/fahadalnoman2001-pixel/productsmalta](https://github.com/fahadalnoman2001-pixel/productsmalta).
 
+### 8. Multi-Language (i18n) Architecture & Route Implementation (2026-08-23)
+- **Supported Locales**: `en` (Default Root, no prefix), `de` (`/de`), `fr` (`/fr`), `es` (`/es`).
+- **Locale Routing & Middleware** (`src/middleware.ts`):
+  - English at root: `/` and `/*` (internally rewrites to `/[locale]` with `x-locale: en`).
+  - Strict canonical redirects: Requests to `/en` or `/en/*` permanently redirect (HTTP 308) to root URLs without `/en`.
+  - Non-default languages: Requests to `/de/*`, `/fr/*`, `/es/*` set `x-locale` request header and route into `src/app/[locale]/(site)/`.
+  - Private bypass: `/admin/*`, `/api/*`, `/oauth/*`, `/mcp/*`, `/.well-known/*`, and static assets bypass i18n routing.
+- **Dynamic `<html lang>`**: `src/app/layout.tsx` reads `x-locale` header and renders `<html lang="en">`, `<html lang="de">`, `<html lang="fr">`, or `<html lang="es">`.
+- **Hreflang Alternates**: All pages generate complete `alternates: { canonical, languages: { 'x-default', en, de, fr, es } }` linking language counterparts.
+- **Comprehensive UI Dictionaries** (`src/lib/i18n/dictionaries.ts`):
+  - English, German, French, and Spanish dictionaries covering header, navigation, filters, product details, blog articles, footer, and full static pages (About Us, Contact, Privacy Policy, Terms of Service).
+- **Interactive Language Switcher** (`src/components/layout/LanguageSwitcher.tsx`):
+  - Desktop topbar dropdown with flags (🇬🇧, 🇩🇪, 🇫🇷, 🇪🇸) and mobile drawer selector.
+  - Automatically translates current route path into selected language.
+- **Multi-Language XML Sitemap** (`src/app/sitemap.ts`):
+  - Generates entries for all core pages, category pages, collection pages, products, and blogs across all 4 languages.
+  - Generates Google-compliant `<xhtml:link rel="alternate" hreflang="..." href="..." />` tags for every entry.
+- **Automated Deployment & Testing**:
+  - Packaging standalone build with assets (`scripts/deploy_to_hostinger.js`).
+  - SFTP streaming and SSH remote extraction with Passenger reload.
+  - Live verification confirmed HTTP 200, `<html lang="...">`, `hreflang` alternate tags, and 308 redirects across `https://youroffers.eu/`.
+

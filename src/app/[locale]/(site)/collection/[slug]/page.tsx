@@ -4,6 +4,8 @@ import ProductCard from "@/components/product/ProductCard";
 import ProductSort from "@/components/product/ProductSort";
 import Link from "next/link";
 import { Sparkles, Tag } from "lucide-react";
+import { Locale, isValidLocale, getHreflangMetadata, getLocalizedPath } from "@/lib/i18n/config";
+import { getDictionary } from "@/lib/i18n/dictionaries";
 import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
@@ -11,8 +13,11 @@ export const dynamic = "force-dynamic";
 export async function generateMetadata({
   params
 }: {
-  params: { slug: string };
+  params: { locale: string; slug: string };
 }): Promise<Metadata> {
+  const rawLocale = params?.locale || "en";
+  const locale: Locale = isValidLocale(rawLocale) ? rawLocale : "en";
+
   const col = await prisma.collection.findUnique({
     where: { slug: params.slug }
   });
@@ -27,9 +32,7 @@ export async function generateMetadata({
   return {
     title: metaTitle,
     description: metaDesc,
-    alternates: {
-      canonical: `/collection/${params.slug}`
-    },
+    alternates: getHreflangMetadata(`/collection/${params.slug}`, locale),
     openGraph: {
       title: `${col.name} | YourOffers.eu`,
       description: metaDesc,
@@ -48,9 +51,14 @@ export default async function CollectionPage({
   params,
   searchParams
 }: {
-  params: { slug: string };
+  params: { locale: string; slug: string };
   searchParams: Record<string, string>;
 }) {
+  const rawLocale = params?.locale || "en";
+  const locale: Locale = isValidLocale(rawLocale) ? rawLocale : "en";
+  const dict = getDictionary(locale);
+  const t = dict.common;
+
   const col = await prisma.collection.findUnique({
     where: { slug: params.slug },
     include: {
@@ -77,14 +85,20 @@ export default async function CollectionPage({
   if (sort === "rating") products = [...products].sort((a, b) => b.rating - a.rating);
 
   const base = process.env.SITE_URL || "https://youroffers.eu";
+  const localizedCollectionUrl = `${base}${getLocalizedPath(`/collection/${col.slug}`, locale)}`;
 
   const breadcrumbSchema = {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
     itemListElement: [
-      { "@type": "ListItem", position: 1, name: "Home", item: `${base}/` },
-      { "@type": "ListItem", position: 2, name: "Collections", item: `${base}/products` },
-      { "@type": "ListItem", position: 3, name: col.name, item: `${base}/collection/${col.slug}` }
+      { "@type": "ListItem", position: 1, name: t.home, item: `${base}${getLocalizedPath("/", locale)}` },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: t.categories,
+        item: `${base}${getLocalizedPath("/products", locale)}`
+      },
+      { "@type": "ListItem", position: 3, name: col.name, item: localizedCollectionUrl }
     ]
   };
 
@@ -97,12 +111,12 @@ export default async function CollectionPage({
 
       {/* Breadcrumbs */}
       <nav className="text-sm text-ink-500 mb-6 flex flex-wrap items-center gap-1.5">
-        <Link href="/" className="hover:text-brand-600 transition">
-          Home
+        <Link href={getLocalizedPath("/", locale)} className="hover:text-brand-600 transition">
+          {t.home}
         </Link>
         <span>/</span>
-        <Link href="/products" className="hover:text-brand-600 transition">
-          Collections
+        <Link href={getLocalizedPath("/products", locale)} className="hover:text-brand-600 transition">
+          {t.categories}
         </Link>
         <span>/</span>
         <span className="text-ink-900 font-semibold">{col.name}</span>
@@ -111,7 +125,7 @@ export default async function CollectionPage({
       {/* Hero Banner */}
       <div className="bg-gradient-to-r from-amber-500 to-red-600 text-white rounded-2xl p-8 md:p-10 mb-8 shadow-md">
         <div className="flex items-center gap-2 text-white/90 text-xs font-bold uppercase tracking-wider mb-2">
-          <Sparkles size={14} /> Featured Collection
+          <Sparkles size={14} /> {t.featuredCollection}
         </div>
         <h1 className="font-display text-2xl md:text-4xl font-extrabold tracking-tight">
           {col.name}
@@ -124,7 +138,7 @@ export default async function CollectionPage({
 
       <div className="flex items-center justify-between mb-6 bg-white border border-ink-100 px-4 py-2.5 rounded-lg shadow-xs">
         <span className="text-xs font-semibold text-ink-600">
-          {products.length} {products.length === 1 ? "offer" : "offers"}
+          {products.length} {products.length === 1 ? t.offerFound : t.offersFound}
         </span>
         <ProductSort sort={sort} />
       </div>
@@ -132,15 +146,18 @@ export default async function CollectionPage({
       {products.length === 0 ? (
         <div className="bg-white rounded-xl border border-ink-100 p-12 text-center shadow-card">
           <Tag className="mx-auto text-slate-300 mb-3" size={32} />
-          <h3 className="text-base font-bold text-ink-900">No products in this collection currently</h3>
-          <Link href="/products" className="inline-block mt-4 text-xs font-semibold text-brand-600 hover:underline">
-            Browse all products →
+          <h3 className="text-base font-bold text-ink-900">{t.noProductsFound}</h3>
+          <Link
+            href={getLocalizedPath("/products", locale)}
+            className="inline-block mt-4 text-xs font-semibold text-brand-600 hover:underline"
+          >
+            {t.viewAllProducts} →
           </Link>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {products.map(p => (
-            <ProductCard key={p.id} p={p} />
+            <ProductCard key={p.id} p={p} locale={locale} />
           ))}
         </div>
       )}
