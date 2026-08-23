@@ -73,7 +73,7 @@ export function getAlternateLanguageUrls(
   const path = getBasePath(basePath);
   const normalizedBase = siteUrl.replace(/\/+$/, "");
 
-  const enUrl = `${normalizedBase}${path === "/" ? "" : path}` || `${normalizedBase}/`;
+  const enUrl = path === "/" ? `${normalizedBase}/` : `${normalizedBase}${path}`;
   const deUrl = `${normalizedBase}/de${path === "/" ? "" : path}`;
   const frUrl = `${normalizedBase}/fr${path === "/" ? "" : path}`;
   const esUrl = `${normalizedBase}/es${path === "/" ? "" : path}`;
@@ -97,7 +97,10 @@ export function getHreflangMetadata(
 ) {
   const normalizedBase = siteUrl.replace(/\/+$/, "");
   const localizedPath = getLocalizedPath(basePath, currentLocale);
-  const canonicalUrl = `${normalizedBase}${localizedPath === "/" ? "" : localizedPath}` || `${normalizedBase}/`;
+  const canonicalUrl =
+    localizedPath === "/"
+      ? `${normalizedBase}/`
+      : `${normalizedBase}${localizedPath}`;
 
   return {
     canonical: canonicalUrl,

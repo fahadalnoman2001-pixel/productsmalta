@@ -83,6 +83,7 @@ async function main() {
             `export PATH=/usr/local/bin:/usr/bin:/bin:$PATH`,
             `cd "${CONFIG.remotePath}"`,
             `/usr/bin/tar -xzf deploy.tar.gz`,
+            `rm -f .next/server/app/sitemap.xml.body .next/server/app/sitemap.xml.meta`,
             `chmod -R +x node_modules/@prisma/engines/* 2>/dev/null || true`,
             `chmod -R +x node_modules/.prisma/client/* 2>/dev/null || true`,
             `mkdir -p tmp`,
