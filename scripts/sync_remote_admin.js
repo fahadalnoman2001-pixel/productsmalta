@@ -1,5 +1,4 @@
 const { Client } = require("ssh2");
-const bcrypt = require("bcryptjs");
 
 const CONFIG = {
   host: "82.198.228.66",
@@ -10,65 +9,38 @@ const CONFIG = {
 };
 
 const DB_URL = "mysql://u783286479_bestdeals:LHG*WyH%3Bo0@127.0.0.1:3306/u783286479_bestdeals";
-const SUPER_ADMIN_EMAIL = "fahadalnoman2001@gmail.com";
-const SUPER_ADMIN_PASSWORD = "TasminaBinte@19";
 
 async function main() {
-  console.log("=== Syncing Remote Database Schema & Super Admin User ===");
-  const hashedPassword = await bcrypt.hash(SUPER_ADMIN_PASSWORD, 10);
+  console.log("=== Syncing Remote Database Schema: AdminVerificationCode ===");
 
   const rawScript = `
     const { PrismaClient } = require('@prisma/client');
     const prisma = new PrismaClient({
-      datasources: {
-        db: {
-          url: '${DB_URL}'
-        }
-      }
+      datasources: { db: { url: '${DB_URL}' } }
     });
 
     async function run() {
-      console.log('1. Creating AdminLog table if not exists...');
+      console.log('1. Creating AdminVerificationCode table if not exists...');
       await prisma.$executeRawUnsafe(\`
-        CREATE TABLE IF NOT EXISTS \\\`AdminLog\\\` (
+        CREATE TABLE IF NOT EXISTS \\\`AdminVerificationCode\\\` (
           \\\`id\\\` VARCHAR(191) NOT NULL,
-          \\\`adminId\\\` VARCHAR(191) NULL,
-          \\\`adminEmail\\\` VARCHAR(191) NOT NULL,
-          \\\`adminName\\\` VARCHAR(191) NULL,
-          \\\`action\\\` VARCHAR(191) NOT NULL,
-          \\\`details\\\` TEXT NULL,
-          \\\`target\\\` VARCHAR(191) NULL,
-          \\\`ip\\\` VARCHAR(191) NULL,
-          \\\`userAgent\\\` TEXT NULL,
+          \\\`code\\\` VARCHAR(32) NOT NULL,
+          \\\`targetEmail\\\` VARCHAR(191) NOT NULL,
+          \\\`targetName\\\` VARCHAR(191) NULL,
+          \\\`targetPassword\\\` TEXT NOT NULL,
+          \\\`targetRole\\\` VARCHAR(191) NOT NULL DEFAULT 'admin',
+          \\\`requestedBy\\\` VARCHAR(191) NOT NULL,
+          \\\`sentToEmail\\\` VARCHAR(191) NOT NULL,
+          \\\`expiresAt\\\` DATETIME(3) NOT NULL,
+          \\\`usedAt\\\` DATETIME(3) NULL,
           \\\`createdAt\\\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
           PRIMARY KEY (\\\`id\\\`),
-          INDEX \\\`AdminLog_adminEmail_idx\\\` (\\\`adminEmail\\\`),
-          INDEX \\\`AdminLog_action_idx\\\` (\\\`action\\\`),
-          INDEX \\\`AdminLog_createdAt_idx\\\` (\\\`createdAt\\\`)
+          INDEX \\\`AdminVerificationCode_code_idx\\\` (\\\`code\\\`),
+          INDEX \\\`AdminVerificationCode_targetEmail_idx\\\` (\\\`targetEmail\\\`),
+          INDEX \\\`AdminVerificationCode_expiresAt_idx\\\` (\\\`expiresAt\\\`)
         ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
       \`);
-      console.log('  ✓ AdminLog table ready');
-
-      console.log('2. Upserting Super Admin user: ${SUPER_ADMIN_EMAIL}');
-      const user = await prisma.user.upsert({
-        where: { email: '${SUPER_ADMIN_EMAIL}' },
-        update: {
-          password: '${hashedPassword}',
-          role: 'super_admin',
-          name: 'Super Admin'
-        },
-        create: {
-          email: '${SUPER_ADMIN_EMAIL}',
-          password: '${hashedPassword}',
-          name: 'Super Admin',
-          role: 'super_admin'
-        }
-      });
-      console.log('  ✓ Super admin synced with ID:', user.id, 'Role:', user.role);
-
-      console.log('3. Verifying all users in DB:');
-      const allUsers = await prisma.user.findMany({ select: { id: true, email: true, role: true } });
-      console.log(JSON.stringify(allUsers, null, 2));
+      console.log('  ✓ AdminVerificationCode table ready on remote DB');
 
       await prisma.$disconnect();
     }

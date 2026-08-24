@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   ShieldCheck,
@@ -18,7 +18,12 @@ import {
   Lock,
   Mail,
   User as UserIcon,
-  ShieldAlert
+  ShieldAlert,
+  ArrowRight,
+  Send,
+  Check,
+  RotateCcw,
+  Sparkles
 } from "lucide-react";
 
 interface AdminUser {
@@ -30,6 +35,7 @@ interface AdminUser {
 }
 
 const PRIMARY_SUPER_ADMIN_EMAIL = "fahadalnoman2001@gmail.com";
+const NOTIFY_SUPER_ADMIN_EMAIL = "fahadalnoman2001@gmail.com";
 
 export default function AdminManager({
   initialUsers,
@@ -46,16 +52,22 @@ export default function AdminManager({
 
   // Modals state
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [createStep, setCreateStep] = useState<"DETAILS" | "VERIFY">("DETAILS");
   const [editingUser, setEditingUser] = useState<AdminUser | null>(null);
   const [passwordUser, setPasswordUser] = useState<AdminUser | null>(null);
   const [deleteUser, setDeleteUser] = useState<AdminUser | null>(null);
 
-  // Create form state
+  // Create form state (Step 1)
   const [createName, setCreateName] = useState("");
   const [createEmail, setCreateEmail] = useState("");
   const [createPassword, setCreatePassword] = useState("");
   const [createRole, setCreateRole] = useState("admin");
   const [showCreatePassword, setShowCreatePassword] = useState(false);
+
+  // 2FA Verification state (Step 2)
+  const [verificationRequestId, setVerificationRequestId] = useState("");
+  const [confirmationCode, setConfirmationCode] = useState("");
+  const [resendCooldown, setResendCooldown] = useState(0);
 
   // Edit form state
   const [editName, setEditName] = useState("");
@@ -69,6 +81,14 @@ export default function AdminManager({
 
   // Feedback notifications
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (resendCooldown > 0) {
+      timer = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000);
+    }
+    return () => clearTimeout(timer);
+  }, [resendCooldown]);
 
   function showMessage(type: "success" | "error", message: string) {
     setFeedback({ type, message });
@@ -92,8 +112,8 @@ export default function AdminManager({
     }
   }
 
-  // Handle Create Admin
-  async function handleCreate(e: React.FormEvent) {
+  // Step 1: Request 10-digit Confirmation Code to fahadalnoman2001@gmail.com
+  async function handleRequestCode(e: React.FormEvent) {
     e.preventDefault();
     if (!createEmail.trim() || !createPassword.trim()) {
       showMessage("error", "Email and password are required");
@@ -106,7 +126,7 @@ export default function AdminManager({
 
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/admins", {
+      const res = await fetch("/api/admin/admins/request-code", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -119,19 +139,88 @@ export default function AdminManager({
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || "Failed to create admin");
+        throw new Error(data.error || "Failed to send confirmation code");
       }
 
-      showMessage("success", data.message || "Admin created successfully");
+      setVerificationRequestId(data.requestId);
+      setConfirmationCode("");
+      setCreateStep("VERIFY");
+      setResendCooldown(60);
+      showMessage("success", data.message || `10-digit code sent to ${NOTIFY_SUPER_ADMIN_EMAIL}`);
+    } catch (err: any) {
+      showMessage("error", err?.message || "Failed to initiate admin creation");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Step 2: Verify 10-digit code and create user
+  async function handleVerifyCode(e: React.FormEvent) {
+    e.preventDefault();
+    const cleanCode = confirmationCode.replace(/[^0-9]/g, "").trim();
+    if (cleanCode.length !== 10) {
+      showMessage("error", "Please enter the complete 10-digit numerical confirmation code");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await fetch("/api/admin/admins/verify-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          requestId: verificationRequestId,
+          code: cleanCode,
+          email: createEmail.trim()
+        })
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Verification failed");
+      }
+
+      showMessage("success", data.message || "Admin verified & created successfully!");
       setIsCreateOpen(false);
+      setCreateStep("DETAILS");
       setCreateName("");
       setCreateEmail("");
       setCreatePassword("");
-      setCreateRole("admin");
+      setConfirmationCode("");
+      setVerificationRequestId("");
       await fetchUsers();
       router.refresh();
     } catch (err: any) {
-      showMessage("error", err?.message || "Failed to create admin");
+      showMessage("error", err?.message || "Verification failed");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Resend code handler
+  async function handleResendCode() {
+    if (resendCooldown > 0 || !verificationRequestId) return;
+
+    setLoading(true);
+    try {
+      const res = await fetch("/api/admin/admins/resend-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          requestId: verificationRequestId,
+          email: createEmail.trim()
+        })
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to resend code");
+      }
+
+      setResendCooldown(60);
+      showMessage("success", data.message || `New 10-digit code sent to ${NOTIFY_SUPER_ADMIN_EMAIL}`);
+    } catch (err: any) {
+      showMessage("error", err?.message || "Failed to resend code");
     } finally {
       setLoading(false);
     }
@@ -289,7 +378,7 @@ export default function AdminManager({
             <h1 className="text-2xl font-bold text-slate-900 font-display">Admin Management</h1>
           </div>
           <p className="text-slate-500 text-sm mt-1">
-            Manage administrator accounts, assign permissions, change passwords and update emails.
+            Manage administrator accounts, security permissions, change passwords, and update admin emails.
           </p>
         </div>
 
@@ -305,10 +394,13 @@ export default function AdminManager({
           </button>
           <button
             onClick={() => {
+              setCreateStep("DETAILS");
               setCreateName("");
               setCreateEmail("");
               setCreatePassword("");
               setCreateRole("admin");
+              setConfirmationCode("");
+              setVerificationRequestId("");
               setIsCreateOpen(true);
             }}
             className="btn btn-primary inline-flex items-center gap-2 text-xs font-bold py-2 shadow-sm"
@@ -519,14 +611,19 @@ export default function AdminManager({
         </div>
       </div>
 
-      {/* CREATE ADMIN MODAL */}
+      {/* CREATE ADMIN 2-STEP MODAL */}
       {isCreateOpen && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
           <div className="bg-white rounded-3xl border border-slate-200 max-w-md w-full p-6 shadow-2xl space-y-5">
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">
               <div className="flex items-center gap-2">
                 <UserPlus className="text-brand-600" size={20} />
-                <h3 className="text-lg font-bold text-slate-900 font-display">Create Another Admin</h3>
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900 font-display">Create Another Admin</h3>
+                  <div className="text-xs text-slate-500 font-medium">
+                    {createStep === "DETAILS" ? "Step 1 of 2: Admin Account Details" : "Step 2 of 2: 10-Digit Email Verification"}
+                  </div>
+                </div>
               </div>
               <button
                 onClick={() => setIsCreateOpen(false)}
@@ -536,89 +633,190 @@ export default function AdminManager({
               </button>
             </div>
 
-            <form onSubmit={handleCreate} className="space-y-4">
-              <div>
-                <label className="label">Admin Name</label>
-                <div className="relative">
-                  <UserIcon size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input
-                    type="text"
-                    value={createName}
-                    onChange={e => setCreateName(e.target.value)}
-                    placeholder="e.g. John Doe"
-                    className="input pl-10"
-                  />
+            {/* STEP 1: ADMIN DETAILS FORM */}
+            {createStep === "DETAILS" ? (
+              <form onSubmit={handleRequestCode} className="space-y-4">
+                <div>
+                  <label className="label">Admin Name</label>
+                  <div className="relative">
+                    <UserIcon size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      value={createName}
+                      onChange={e => setCreateName(e.target.value)}
+                      placeholder="e.g. John Doe"
+                      className="input pl-10"
+                    />
+                  </div>
                 </div>
-              </div>
 
-              <div>
-                <label className="label">Admin Email <span className="text-rose-500">*</span></label>
-                <div className="relative">
-                  <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input
-                    type="email"
-                    required
-                    value={createEmail}
-                    onChange={e => setCreateEmail(e.target.value)}
-                    placeholder="admin@youroffers.eu"
-                    className="input pl-10"
-                  />
+                <div>
+                  <label className="label">Admin Email <span className="text-rose-500">*</span></label>
+                  <div className="relative">
+                    <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="email"
+                      required
+                      value={createEmail}
+                      onChange={e => setCreateEmail(e.target.value)}
+                      placeholder="admin@youroffers.eu"
+                      className="input pl-10"
+                    />
+                  </div>
                 </div>
-              </div>
 
-              <div>
-                <label className="label">Password <span className="text-rose-500">*</span></label>
-                <div className="relative">
-                  <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input
-                    type={showCreatePassword ? "text" : "password"}
-                    required
-                    minLength={6}
-                    value={createPassword}
-                    onChange={e => setCreatePassword(e.target.value)}
-                    placeholder="Minimum 6 characters"
-                    className="input pl-10 pr-10"
-                  />
+                <div>
+                  <label className="label">Password <span className="text-rose-500">*</span></label>
+                  <div className="relative">
+                    <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type={showCreatePassword ? "text" : "password"}
+                      required
+                      minLength={6}
+                      value={createPassword}
+                      onChange={e => setCreatePassword(e.target.value)}
+                      placeholder="Minimum 6 characters"
+                      className="input pl-10 pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowCreatePassword(!showCreatePassword)}
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+                    >
+                      {showCreatePassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="label">Role</label>
+                  <select
+                    value={createRole}
+                    onChange={e => setCreateRole(e.target.value)}
+                    className="input font-medium"
+                  >
+                    <option value="admin">Admin (Full content & catalog access)</option>
+                    <option value="super_admin">Super Admin (Full system & MCP access)</option>
+                    <option value="editor">Editor (Content creation only)</option>
+                  </select>
+                </div>
+
+                <div className="p-3 bg-amber-50 rounded-xl border border-amber-200/80 text-xs text-amber-800 space-y-1">
+                  <div className="font-bold flex items-center gap-1.5">
+                    <ShieldCheck size={14} className="text-amber-600" />
+                    Two-Factor Security Verification
+                  </div>
+                  <p className="text-[11px] leading-relaxed text-amber-700">
+                    A 10-digit confirmation code will be sent to <strong>{NOTIFY_SUPER_ADMIN_EMAIL}</strong> via Hostinger SMTP from <strong>noreplay@youroffers.eu</strong>.
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
                   <button
                     type="button"
-                    onClick={() => setShowCreatePassword(!showCreatePassword)}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+                    onClick={() => setIsCreateOpen(false)}
+                    className="btn btn-secondary text-xs"
                   >
-                    {showCreatePassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="btn btn-primary text-xs font-bold shadow-sm inline-flex items-center gap-1.5"
+                  >
+                    <span>{loading ? "Sending Code..." : "Send Confirmation Code"}</span>
+                    <ArrowRight size={14} />
                   </button>
                 </div>
-              </div>
+              </form>
+            ) : (
+              /* STEP 2: 10-DIGIT CONFIRMATION CODE VERIFICATION */
+              <form onSubmit={handleVerifyCode} className="space-y-4">
+                <div className="p-4 bg-brand-50/80 rounded-2xl border border-brand-200/80 text-center">
+                  <div className="w-10 h-10 rounded-full bg-brand-100 text-brand-600 flex items-center justify-center mx-auto mb-2">
+                    <Send size={18} />
+                  </div>
+                  <h4 className="text-sm font-bold text-slate-900">Check Your Email</h4>
+                  <p className="text-xs text-slate-600 mt-1">
+                    A 10-digit code was sent to <strong className="text-slate-800">{NOTIFY_SUPER_ADMIN_EMAIL}</strong>
+                  </p>
+                  <div className="text-[11px] text-slate-400 font-mono mt-0.5">
+                    From: noreplay@youroffers.eu
+                  </div>
+                </div>
 
-              <div>
-                <label className="label">Role</label>
-                <select
-                  value={createRole}
-                  onChange={e => setCreateRole(e.target.value)}
-                  className="input font-medium"
-                >
-                  <option value="admin">Admin (Full content & catalog access)</option>
-                  <option value="super_admin">Super Admin (Full system & MCP access)</option>
-                  <option value="editor">Editor (Content creation only)</option>
-                </select>
-              </div>
+                {/* Target Admin Summary */}
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs flex items-center justify-between">
+                  <div>
+                    <span className="text-slate-400 text-[10px] block uppercase font-bold">New Admin</span>
+                    <span className="font-semibold text-slate-800">{createEmail}</span>
+                  </div>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-700">
+                    {createRole}
+                  </span>
+                </div>
 
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setIsCreateOpen(false)}
-                  className="btn btn-secondary text-xs"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="btn btn-primary text-xs font-bold shadow-sm"
-                >
-                  {loading ? "Creating..." : "Create Admin Account"}
-                </button>
-              </div>
-            </form>
+                <div>
+                  <label className="label">
+                    Enter 10-Digit Confirmation Code <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <KeyRound size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      required
+                      maxLength={10}
+                      autoFocus
+                      value={confirmationCode}
+                      onChange={e => setConfirmationCode(e.target.value.replace(/[^0-9]/g, ""))}
+                      placeholder="e.g. 8492048192"
+                      className="input pl-10 font-mono tracking-widest text-center text-lg font-bold placeholder:tracking-normal placeholder:font-sans placeholder:text-sm placeholder:font-normal"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between text-[11px] text-slate-400 mt-1.5">
+                    <span>Code is valid for 10 minutes</span>
+                    <span>{confirmationCode.length}/10 digits</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setCreateStep("DETAILS")}
+                    className="text-xs text-slate-500 hover:text-slate-800 underline font-medium"
+                  >
+                    ← Edit Details
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleResendCode}
+                    disabled={resendCooldown > 0 || loading}
+                    className="text-xs text-brand-600 hover:text-brand-700 font-bold disabled:text-slate-400"
+                  >
+                    {resendCooldown > 0 ? `Resend code in ${resendCooldown}s` : "Resend Code"}
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setIsCreateOpen(false)}
+                    className="btn btn-secondary text-xs"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={loading || confirmationCode.length !== 10}
+                    className="btn btn-primary text-xs font-bold shadow-sm inline-flex items-center gap-1.5 disabled:opacity-50"
+                  >
+                    <Check size={15} />
+                    <span>{loading ? "Verifying..." : "Verify & Create Admin"}</span>
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}

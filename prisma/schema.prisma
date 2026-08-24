@@ -236,3 +236,22 @@ model AdminLog {
   @@index([createdAt])
 }
 
+model AdminVerificationCode {
+  id             String    @id @default(cuid())
+  code           String    @db.VarChar(32)
+  targetEmail    String
+  targetName     String?
+  targetPassword String    @db.Text
+  targetRole     String    @default("admin")
+  requestedBy    String
+  sentToEmail    String
+  expiresAt      DateTime
+  usedAt         DateTime?
+  createdAt      DateTime  @default(now())
+
+  @@index([code])
+  @@index([targetEmail])
+  @@index([expiresAt])
+}
+
+
