@@ -10,8 +10,11 @@ const SMTP_CONFIG = {
   }
 };
 
-const DEFAULT_FROM = process.env.SMTP_FROM || '"YourOffers Security" <noreplay@youroffers.eu>';
-export const NOTIFY_SUPER_ADMIN_EMAIL = process.env.SECURITY_NOTIFY_EMAIL || "fahadalnoman2001@gmail.com";
+const DEFAULT_FROM = {
+  name: "YourOffers Security",
+  address: (process.env.SMTP_USER || "noreplay@youroffers.eu").trim()
+};
+export const NOTIFY_SUPER_ADMIN_EMAIL = (process.env.SECURITY_NOTIFY_EMAIL || "fahadalnoman2001@gmail.com").trim();
 
 let transporter: nodemailer.Transporter | null = null;
 
