@@ -5,7 +5,7 @@ import crypto from "crypto";
 const prisma = new PrismaClient();
 
 async function main() {
-  const email = process.env.SUPER_ADMIN_EMAIL || "fahad@gmail.com";
+  const email = process.env.SUPER_ADMIN_EMAIL || "fahadalnoman2001@gmail.com";
   const password = process.env.SUPER_ADMIN_PASSWORD || "TasminaBinte@19";
 
   const hashed = await bcrypt.hash(password, 10);

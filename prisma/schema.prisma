@@ -218,3 +218,21 @@ model ClickLog {
 
   @@index([productId])
 }
+
+model AdminLog {
+  id         String   @id @default(cuid())
+  adminId    String?
+  adminEmail String
+  adminName  String?
+  action     String
+  details    String?  @db.Text
+  target     String?
+  ip         String?
+  userAgent  String?  @db.Text
+  createdAt  DateTime @default(now())
+
+  @@index([adminEmail])
+  @@index([action])
+  @@index([createdAt])
+}
+

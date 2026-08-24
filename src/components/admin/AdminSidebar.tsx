@@ -11,7 +11,9 @@ import {
   Image as ImgIcon,
   Compass,
   Settings,
-  Terminal
+  Terminal,
+  ShieldCheck,
+  History
 } from "lucide-react";
 import LogoutButton from "./LogoutButton";
 
@@ -32,6 +34,8 @@ export default function AdminSidebar({
     { href: "/admin/menus", label: "Menu Control", icon: Compass },
     { href: "/admin/blogs", label: "Blogs", icon: FileText },
     { href: "/admin/banners", label: "Banners & Posters", icon: ImgIcon },
+    { href: "/admin/admins", label: "Admin Management", icon: ShieldCheck },
+    { href: "/admin/logs", label: "Admin Logs", icon: History },
     { href: "/admin/settings", label: "Settings", icon: Settings },
     ...(userRole === "super_admin" ? [{ href: "/admin/mcp", label: "MCP Server", icon: Terminal }] : [])
   ];
